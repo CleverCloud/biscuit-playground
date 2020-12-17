@@ -11,8 +11,17 @@ input.parse_error {
 input.caveat_failure {
     background: #ffa2a2;
 }
+
+li.caveat_failure::after {
+    content: "❌";
+}
+
 input.caveat_success {
     background: #c1f1c1;
+}
+
+li.caveat_success::after {
+    content: "✔️";
 }
 
 pre {

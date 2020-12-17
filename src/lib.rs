@@ -328,7 +328,9 @@ impl Model {
         let is_enabled = caveat.enabled;
 
         html! {
-            <li>
+            <li
+                class= { caveat.class() }
+            >
                 <button onclick=self.link.callback(move |_| {
                     Msg::DeleteElement { kind: Kind::Caveat, block_index, element_index }
                 })>{ "-" }</button>
@@ -456,7 +458,9 @@ impl Model {
         let is_enabled = caveat.enabled;
 
         html! {
-            <li>
+            <li
+                class= { caveat.class() }
+            >
                 <button onclick=self.link.callback(move |_| {
                     Msg::DeleteVerifierElement { kind: Kind::Caveat, element_index }
                 })>{ "-" }</button>
