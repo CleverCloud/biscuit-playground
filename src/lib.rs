@@ -236,11 +236,13 @@ impl Model {
                         })
                             hidden = { block_index == 0 }
                         >{ "-" }</button>
-                        <button onclick=self.link.callback(move |_| {
-                            Msg::SetBlockEnabled {enabled: !is_enabled, block_index }
-                        })
+                        <input type="checkbox"
+                            onclick = self.link.callback(move |_| {
+                                Msg::SetBlockEnabled {enabled: !is_enabled, block_index }
+                            })
+                            checked = { is_enabled }
                             hidden = { block_index == 0 }
-                        >{ "/" }</button>
+                        />
                     </div>
 
                 { "Facts:" }
@@ -285,9 +287,12 @@ impl Model {
                 <button onclick=self.link.callback(move |_| {
                     Msg::DeleteElement { kind: Kind::Fact, block_index, element_index }
                 })>{ "-" }</button>
-                <button onclick=self.link.callback(move |_| {
-                    Msg::SetEnabled { kind: Kind::Fact, enabled: !is_enabled, block_index, element_index }
-                })>{ "/" }</button>
+                <input type="checkbox"
+                    onclick = self.link.callback(move |_| {
+                        Msg::SetEnabled {kind: Kind::Fact, enabled: !is_enabled, block_index, element_index }
+                    })
+                    checked = { is_enabled }
+                />
                 <input
                     type="text"
                     size="40"
@@ -311,9 +316,12 @@ impl Model {
                 <button onclick=self.link.callback(move |_| {
                     Msg::DeleteElement { kind: Kind::Rule, block_index, element_index }
                 })>{ "-" }</button>
-                <button onclick=self.link.callback(move |_| {
-                    Msg::SetEnabled { kind: Kind::Rule, enabled: !is_enabled, block_index, element_index }
-                })>{ "/" }</button>
+                <input type="checkbox"
+                    onclick = self.link.callback(move |_| {
+                        Msg::SetEnabled {kind: Kind::Rule, enabled: !is_enabled, block_index, element_index }
+                    })
+                    checked = { is_enabled }
+                />
                 <input
                     type="text"
                     size="40"
@@ -339,9 +347,12 @@ impl Model {
                 <button onclick=self.link.callback(move |_| {
                     Msg::DeleteElement { kind: Kind::Caveat, block_index, element_index }
                 })>{ "-" }</button>
-                <button onclick=self.link.callback(move |_| {
-                    Msg::SetEnabled { kind: Kind::Caveat, enabled: !is_enabled, block_index, element_index }
-                })>{ "/" }</button>
+                <input type="checkbox"
+                    onclick = self.link.callback(move |_| {
+                        Msg::SetEnabled {kind: Kind::Caveat, enabled: !is_enabled, block_index, element_index }
+                    })
+                    checked = { is_enabled }
+                />
                 <input
                     type="text"
                     size="40"
@@ -415,9 +426,12 @@ impl Model {
                 <button onclick=self.link.callback(move |_| {
                     Msg::DeleteVerifierElement { kind: Kind::Fact, element_index }
                 })>{ "-" }</button>
-                <button onclick=self.link.callback(move |_| {
-                    Msg::SetVerifierEnabled { kind: Kind::Fact, enabled: !is_enabled, element_index }
-                })>{ "/" }</button>
+                <input type="checkbox"
+                    onclick = self.link.callback(move |_| {
+                        Msg::SetVerifierEnabled {kind: Kind::Fact, enabled: !is_enabled, element_index }
+                    })
+                    checked = { is_enabled }
+                />
                 <input
                     type="text"
                     size="40"
@@ -441,9 +455,12 @@ impl Model {
                 <button onclick=self.link.callback(move |_| {
                     Msg::DeleteVerifierElement { kind: Kind::Rule, element_index }
                 })>{ "-" }</button>
-                <button onclick=self.link.callback(move |_| {
-                    Msg::SetVerifierEnabled { kind: Kind::Rule, enabled: !is_enabled, element_index }
-                })>{ "/" }</button>
+                <input type="checkbox"
+                    onclick = self.link.callback(move |_| {
+                        Msg::SetVerifierEnabled {kind: Kind::Rule, enabled: !is_enabled, element_index }
+                    })
+                    checked = { is_enabled }
+                />
                 <input
                     type="text"
                     size="40"
@@ -469,9 +486,12 @@ impl Model {
                 <button onclick=self.link.callback(move |_| {
                     Msg::DeleteVerifierElement { kind: Kind::Caveat, element_index }
                 })>{ "-" }</button>
-                <button onclick=self.link.callback(move |_| {
-                    Msg::SetVerifierEnabled { kind: Kind::Caveat, enabled: !is_enabled, element_index }
-                })>{ "/" }</button>
+                <input type="checkbox"
+                    onclick = self.link.callback(move |_| {
+                        Msg::SetVerifierEnabled {kind: Kind::Caveat, enabled: !is_enabled, element_index }
+                    })
+                    checked = { is_enabled }
+                />
                 <input
                     type="text"
                     size="40"
