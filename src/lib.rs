@@ -38,23 +38,7 @@ impl Component for Model {
     type Message = Msg;
     type Properties = ();
     fn create(_: Self::Properties, link: ComponentLink<Self>) -> Self {
-        let mut token = Token::default();
-        token.authority.facts.push(Fact {
-            data: "user(#authority, \"user_1234\")".to_string(),
-            parsed: false,
-            enabled: true,
-        });
-        /*token.authority.facts.push(Fact {
-            data: "hello".to_string(),
-            parsed: false,
-            enabled: true,
-        });*/
-        token.authority.rules.push(Rule {
-            data: "*self($id) <- user(#authority, $id)".to_string(),
-            parsed: false,
-            enabled: true,
-        });
-        token.verifier.caveats.push(Caveat::new("*check_user(\"verified\") <- user(#authority, \"user_1234\")"));
+        let mut token = Token::files_scenario();
         token.generate();
         Self { link, token }
     }
@@ -642,6 +626,89 @@ struct Token {
 }
 
 impl Token {
+    fn files_scenario() -> Self {
+        let mut token = Token::default();
+        token.blocks.push(Block::default());
+        token.blocks.push(Block::default());
+
+        token.authority.facts.push(Fact::new("right(#authority, \"/folder1/file1\", #read)"));
+        token.authority.facts.push(Fact::new("right(#authority, \"/folder1/file1\", #write)"));
+        token.authority.facts.push(Fact::new("right(#authority, \"/folder2/file1\", #read)"));
+
+        token.blocks[0].caveats.push(Caveat::new("*check(#read) <- operation(#ambient, #read)"));
+        token.blocks[1].caveats.push(Caveat::new("*check($file) <- resource(#ambient, $file) @ $file matches /folder1/*"));
+
+        // simulate verification for PUT /blog1/article1
+        token.verifier.facts.push(Fact::new("resource(#ambient, \"/folder1/file1\")"));
+        token.verifier.facts.push(Fact::new("operation(#ambient, #read)"));
+        token.verifier.caveats.push(Caveat::new("*check($file) <- resource(#ambient, $file), operation(#ambient, $op), right(#authority, $file, $op)"));
+
+        token
+    }
+
+    fn newspaper_scenario() -> Self {
+        let mut token = Token::default();
+        token.authority.facts.push(Fact::new("user(#authority, \"user_1234\")"));
+
+        // simulate verification for PUT /blog1/article1
+        token.verifier.facts.push(Fact::new("blog(#ambient, \"blog1\")"));
+        token.verifier.facts.push(Fact::new("article(#ambient, \"blog1\", \"article1\")"));
+        token.verifier.facts.push(Fact::new("operation(#ambient, #update)"));
+
+        // add ownership information
+        // we only ned to load facts related to the blog and article we're accessing
+        token.verifier.facts.push(Fact::new("owner(#authority, \"user_1234\", \"blog1\")"));
+        //verifier.add_fact("owner(#authority, \"user_5678\", \"blog2\")")?;
+        //verifier.add_fact("owner(#authority, \"user_1234\", \"blog3\")")?;
+
+        // add our authorization policies
+        // the owner has all rights
+        token.verifier.rules.push(Rule::new(
+            "*right(#authority, $blog_id, $article_id, $operation) <-
+             article(#ambient, $blog_id, $article_id),
+             operation(#ambient, $operation),
+             user(#authority, $user_id),
+             owner(#authority, $user_id, $blog_id))",
+             ));
+
+        // articles can be marked as publicly readable
+        token.verifier.rules.push(Rule::new(
+            "*right(#authority, $blog_id, $article_id, #read) <-
+             article(#ambient, $blog_id, $article_id),
+             readable(#authority, $blog_id, $article_id))",
+            ));
+        // premium users can access some restricted articles
+        token.verifier.rules.push(Rule::new(
+            "*right(#authority, $blog_id, $article_id, #read) <-
+             article(#ambient, $blog_id, $article_id),
+             premium_readable(#authority, $blog_id, $article_id),
+             user(#authority, $user_id),
+             premium_user(#authority, $user_id, $blog_id))",
+         ));
+
+        // define teams and roles
+        token.verifier.rules.push(Rule::new(
+            "*right(#authority, $blog_id, $article_id, $operation) <-
+             article(#ambient, $blog_id, $article_id),
+             operation(#ambient, $operation),
+             user(#authority, $user_id),
+             member(#authority, $usr_id, $team_id),
+             team_role(#authority, $team_id, $blog_id, #contributor)
+             @ $operation in [#read, #write])",
+             ));
+
+        // add the rights verification caveat
+        token.verifier.caveats.push(Caveat::new(
+            "*verified($blog_id, $article_id, $operation) <-
+             blog(#ambient, $blog_id),
+             article(#ambient, $blog_id, $article_id),
+             operation(#ambient, $operation),
+             right(#authority, $blog_id, $article_id, $operation)",
+             ));
+
+        token
+    }
+
     fn generate(&mut self) {
         info!("generate token: {:?}", self);
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
