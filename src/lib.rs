@@ -8,7 +8,6 @@ use std::default::Default;
 
 struct Model {
     link: ComponentLink<Self>,
-    value: i64,
     token: Token,
 }
 
@@ -19,7 +18,6 @@ enum Kind {
 }
 
 enum Msg {
-    AddOne,
     AddBlock,
     DeleteBlock { block_index: usize },
     SetBlockEnabled { block_index: usize, enabled: bool },
@@ -58,12 +56,11 @@ impl Component for Model {
         });
         token.verifier.caveats.push(Caveat::new("*check_user() <- user(#authority, \"user_5678\")"));
         token.generate();
-        Self { link, value: 0, token }
+        Self { link, token }
     }
 
     fn update(&mut self, msg: Self::Message) -> ShouldRender {
         match msg {
-            Msg::AddOne => self.value += 1,
             Msg::AddBlock => {
                 self.token.blocks.push(Block::default());
             },
@@ -191,8 +188,6 @@ impl Component for Model {
         html! {
             <div>
                 <div>
-                    <button onclick=self.link.callback(|_| Msg::AddOne)>{ "+1" }</button>
-                    <p>{ self.value }</p>
                     <h2>{ "Biscuit Token" }</h2>
                     <ul>
                         { self.view_block(0, &self.token.authority) }
