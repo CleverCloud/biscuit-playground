@@ -44,17 +44,17 @@ impl Component for Model {
             parsed: false,
             enabled: true,
         });
-        token.authority.facts.push(Fact {
+        /*token.authority.facts.push(Fact {
             data: "hello".to_string(),
             parsed: false,
             enabled: true,
-        });
+        });*/
         token.authority.rules.push(Rule {
             data: "*self($id) <- user(#authority, $id)".to_string(),
             parsed: false,
             enabled: true,
         });
-        token.verifier.caveats.push(Caveat::new("*check_user() <- user(#authority, \"user_5678\")"));
+        token.verifier.caveats.push(Caveat::new("*check_user(\"verified\") <- user(#authority, \"user_1234\")"));
         token.generate();
         Self { link, token }
     }
