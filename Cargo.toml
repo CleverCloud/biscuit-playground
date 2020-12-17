@@ -15,6 +15,7 @@ rand = "0.7"
 log = "*"
 wasm-logger = "*"
 console_error_panic_hook = "*"
+base64 = "*"
 
 [profile.release]
 debug = true

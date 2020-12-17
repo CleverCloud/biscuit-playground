@@ -200,7 +200,12 @@ impl Component for Model {
                             Msg::AddBlock
                         })>{ "Add Block" }</button></li>
                     </ul>
-                    <em>{"Token content"}</em>
+                    <em>{"Token content:"}</em>
+                    <input
+                        type="text"
+                        size="40"
+                        value = { self.token.serialized.as_deref().unwrap_or("") }
+                    />
                     <pre id="token-content">
                         { self.token.biscuit.as_ref().map(|b| b.print()).unwrap_or_else(String::new) }
                     </pre>
@@ -612,6 +617,7 @@ struct Token {
     pub authority: Block,
     pub blocks: Vec<Block>,
     pub biscuit: Option<Biscuit>,
+    pub serialized: Option<String>,
     pub verifier: Verifier,
 }
 
@@ -672,6 +678,8 @@ impl Token {
         }
 
         self.verifier.verify(&token, root.public());
+        let v = token.to_vec().unwrap();
+        self.serialized = Some(base64::encode_config(&v[..], base64::URL_SAFE));
         self.biscuit = Some(token);
 
         if let Some(error::Token::FailedLogic(error::Logic::FailedCaveats(v))) = self.verifier.error.as_ref() {
