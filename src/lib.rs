@@ -186,9 +186,10 @@ impl Component for Model {
         info!("will show view");
 
         html! {
-            <div>
-                <div>
-                    <h2>{ "Biscuit Token" }</h2>
+            <div id="biscuit-wrapper">
+                <h2>{ "Biscuit Token playground" }</h2>
+                <div id="token">
+                    <em>{"Blocks:"}</em>
                     <ul>
                         { self.view_block(0, &self.token.authority) }
                         { (self.token.blocks.iter()
@@ -197,9 +198,10 @@ impl Component for Model {
                             .collect::<Html>() }
                         <li><button onclick=self.link.callback(move |_| {
                             Msg::AddBlock
-                        })>{ "+" }</button></li>
+                        })>{ "Add Block" }</button></li>
                     </ul>
-                    <pre>
+                    <em>{"Token content"}</em>
+                    <pre id="token-content">
                         { self.token.biscuit.as_ref().map(|b| b.print()).unwrap_or_else(String::new) }
                     </pre>
                 </div>
@@ -214,46 +216,58 @@ impl Model {
         let is_enabled = block.enabled;
 
         html! {
-            <li>
+            <li class={ if is_enabled { "" } else { "block-disabled" } }>
+                <div class="block">
+                    <div>
+
+                        <h3>{ if block_index == 0 {
+                            "Authority block".to_string()
+                        } else {
+                            format!("Block {}", block_index)
+                        }
+                        }</h3>
+                        <button onclick=self.link.callback(move |_| {
+                            Msg::DeleteBlock { block_index }
+                        })
+                            hidden = { block_index == 0 }
+                        >{ "-" }</button>
+                        <button onclick=self.link.callback(move |_| {
+                            Msg::SetBlockEnabled {enabled: !is_enabled, block_index }
+                        })
+                            hidden = { block_index == 0 }
+                        >{ "/" }</button>
+                    </div>
+
+                { "Facts:" }
                 <button onclick=self.link.callback(move |_| {
-                    Msg::DeleteBlock { block_index }
-                })>{ "-" }</button>
-                <button onclick=self.link.callback(move |_| {
-                    Msg::SetBlockEnabled {enabled: !is_enabled, block_index }
-                })>{ "/" }</button>
-                <h3>{ if block_index == 0 {
-                    "authority".to_string()
-                } else {
-                    format!("Block {}", block_index)
-                }
-                }</h3>
-            { "Facts:" }
+                    Msg::AddElement { kind: Kind::Fact, block_index }
+                })>{ "+" }</button>
                 <ul>
                     { for block.facts.iter().enumerate()
                         .map(|(fact_index, fact)| self.view_fact(block_index, fact_index, fact))
                     }
-                    <li><button onclick=self.link.callback(move |_| {
-                        Msg::AddElement { kind: Kind::Fact, block_index }
-                    })>{ "+" }</button></li>
                 </ul>
-            { "Rules:" }
+
+                { "Rules:" }
+                <button onclick=self.link.callback(move |_| {
+                    Msg::AddElement { kind: Kind::Rule, block_index }
+                })>{ "+" }</button>
                 <ul>
                     { for block.rules.iter().enumerate()
                         .map(|(rule_index, rule)| self.view_rule(block_index, rule_index, rule))
                     }
-                    <li><button onclick=self.link.callback(move |_| {
-                        Msg::AddElement { kind: Kind::Rule, block_index }
-                    })>{ "+" }</button></li>
                 </ul>
-            { "Caveats:" }
+
+                { "Caveats:" }
+                <button onclick=self.link.callback(move |_| {
+                    Msg::AddElement { kind: Kind::Caveat, block_index }
+                })>{ "+" }</button>
                 <ul>
                     { for block.caveats.iter().enumerate()
                         .map(|(caveat_index, caveat)| self.view_caveat(block_index, caveat_index, caveat))
                     }
-                    <li><button onclick=self.link.callback(move |_| {
-                        Msg::AddElement { kind: Kind::Caveat, block_index }
-                    })>{ "+" }</button></li>
                 </ul>
+                </div>
             </li>
         }
     }
@@ -271,7 +285,7 @@ impl Model {
                 })>{ "/" }</button>
                 <input
                     type="text"
-                    size="50"
+                    size="40"
                     class= { if fact.parsed { "" } else { "parse_error" } }
                     value = { fact.data.clone() }
                     disabled = if !fact.enabled { true } else { false }
@@ -297,7 +311,7 @@ impl Model {
                 })>{ "/" }</button>
                 <input
                     type="text"
-                    size="50"
+                    size="40"
                     class= { if rule.parsed { "" } else { "parse_error" } }
                     value = { rule.data.clone() }
                     disabled = if !rule.enabled { true } else { false }
@@ -323,7 +337,7 @@ impl Model {
                 })>{ "/" }</button>
                 <input
                     type="text"
-                    size="50"
+                    size="40"
                     class= { caveat.class() }
                     value = { caveat.data.clone() }
                     disabled = if !caveat.enabled { true } else { false }
@@ -338,41 +352,49 @@ impl Model {
 
     fn view_verifier(&self, verifier: &Verifier) -> Html {
         html! {
-            <div>
+            <div id="verifier">
                 <h3>{"Verifier"}</h3>
-            { "Facts:" }
+
+                { "Facts:" }
+                <button onclick=self.link.callback(move |_| {
+                    Msg::AddVerifierElement { kind: Kind::Fact }
+                })>{ "+" }</button>
+
                 <ul>
                     { for verifier.facts.iter().enumerate()
                         .map(|(fact_index, fact)| self.view_verifier_fact(fact_index, fact))
                     }
-                    <li><button onclick=self.link.callback(move |_| {
-                        Msg::AddVerifierElement { kind: Kind::Fact }
-                    })>{ "+" }</button></li>
                 </ul>
-            { "Rules:" }
+
+                { "Rules:" }
+                <button onclick=self.link.callback(move |_| {
+                    Msg::AddVerifierElement { kind: Kind::Rule }
+                })>{ "+" }</button>
+
                 <ul>
                     { for verifier.rules.iter().enumerate()
                         .map(|(rule_index, rule)| self.view_verifier_rule(rule_index, rule))
                     }
-                    <li><button onclick=self.link.callback(move |_| {
-                        Msg::AddVerifierElement { kind: Kind::Rule }
-                    })>{ "+" }</button></li>
                 </ul>
-            { "Caveats:" }
+
+                { "Caveats:" }
+                <button onclick=self.link.callback(move |_| {
+                    Msg::AddVerifierElement { kind: Kind::Caveat }
+                })>{ "+" }</button>
+
                 <ul>
                     { for verifier.caveats.iter().enumerate()
                         .map(|(caveat_index, caveat)| self.view_verifier_caveat(caveat_index, caveat))
                     }
-                    <li><button onclick=self.link.callback(move |_| {
-                        Msg::AddVerifierElement { kind: Kind::Caveat }
-                    })>{ "+" }</button></li>
                 </ul>
+
                 <h4>{"Output"}</h4>
-                <p>{ match &verifier.error {
+                <p id="verifier-result">{ match &verifier.error {
                     Some(e) => format!("Error: {:?}", e),
                     None => "Success".to_string(),
                 } }</p>
-                <pre>{ &verifier.output }</pre>
+
+                <pre id="verifier-world">{ &verifier.output }</pre>
 
             </div>
         }
@@ -391,7 +413,7 @@ impl Model {
                 })>{ "/" }</button>
                 <input
                     type="text"
-                    size="50"
+                    size="40"
                     class= { if fact.parsed { "" } else { "parse_error" } }
                     value = { fact.data.clone() }
                     disabled = if !fact.enabled { true } else { false }
@@ -417,7 +439,7 @@ impl Model {
                 })>{ "/" }</button>
                 <input
                     type="text"
-                    size="50"
+                    size="40"
                     class= { if rule.parsed { "" } else { "parse_error" } }
                     value = { rule.data.clone() }
                     disabled = if !rule.enabled { true } else { false }
@@ -443,7 +465,7 @@ impl Model {
                 })>{ "/" }</button>
                 <input
                     type="text"
-                    size="50"
+                    size="40"
                     class= { caveat.class() }
                     value = { caveat.data.clone() }
                     disabled = if !caveat.enabled { true } else { false }

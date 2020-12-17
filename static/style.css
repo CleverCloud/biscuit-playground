@@ -14,3 +14,49 @@ input.caveat_failure {
 input.caveat_success {
     background: #c1f1c1;
 }
+
+pre {
+    white-space: pre-wrap;
+}
+
+.block-disabled {
+  background: #e6e6e6;
+}
+
+@media (min-width: 950px) {
+  #biscuit-wrapper {
+    margin: auto;
+    padding-bottom: 10px;
+    display: grid;
+    grid-template-columns: auto;
+    grid-template-rows: auto;
+
+    width: 80%;
+  }
+
+  #biscuit-wrapper h2 {
+    grid-column-start: 1;
+    grid-column-end: end;
+    grid-row-start: 1;
+    grid-row-end: 2;
+  }
+
+  div#token {
+    grid-column-start: 1;
+    grid-column-end: 2;
+    grid-row-start: 2;
+    grid-row-end: end;
+    width: 90%;
+    max-width: 500px;
+  }
+
+  div#verifier {
+    grid-column-start: 2;
+    grid-column-end: end;
+    grid-row-start: 2;
+    grid-row-end: 2;
+    width: 90%;
+    max-width: 500px;
+  }
+}
+
