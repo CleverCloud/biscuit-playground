@@ -1,4 +1,4 @@
-#![recursion_limit="256"]
+#![recursion_limit="512"]
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
 use biscuit_auth::{token::Biscuit, crypto::KeyPair, error};
@@ -62,6 +62,9 @@ enum Kind {
 
 enum Msg {
     AddOne,
+    AddBlock,
+    DeleteBlock { block_index: usize },
+    SetBlockEnabled { block_index: usize, enabled: bool },
     AddElement { kind: Kind, block_index: usize, },
     DeleteElement { kind: Kind, block_index: usize, element_index: usize, },
     SetEnabled { enabled: bool, kind: Kind, block_index: usize, element_index: usize, },
@@ -91,6 +94,19 @@ impl Component for Model {
     fn update(&mut self, msg: Self::Message) -> ShouldRender {
         match msg {
             Msg::AddOne => self.value += 1,
+            Msg::AddBlock => {
+                self.token.blocks.push(Block::default());
+            },
+            Msg::DeleteBlock { block_index } => {
+                self.token.blocks.remove(block_index - 1);
+            },
+            Msg::SetBlockEnabled { block_index, enabled } => {
+                if block_index == 0 {
+                    self.token.authority.enabled = enabled;
+                } else {
+                    self.token.blocks[block_index - 1].enabled = enabled;
+                }
+            },
             Msg::AddElement { kind, block_index } => {
                 let block = if block_index == 0 {
                     &mut self.token.authority
@@ -178,6 +194,9 @@ impl Component for Model {
                         .enumerate())
                         .map(|(id, block)| self.view_block(id+1, block))
                         .collect::<Html>() }
+                    <li><button onclick=self.link.callback(move |_| {
+                        Msg::AddBlock
+                    })>{ "+" }</button></li>
                 </ul>
                 <pre>
                     { self.token.biscuit.as_ref().map(|b| b.print()).unwrap_or_else(String::new) }
@@ -189,8 +208,22 @@ impl Component for Model {
 
 impl Model {
     fn view_block(&self, block_index: usize, block: &Block) -> Html {
+        let is_enabled = block.enabled;
+
         html! {
             <li>
+                <button onclick=self.link.callback(move |_| {
+                    Msg::DeleteBlock { block_index }
+                })>{ "-" }</button>
+                <button onclick=self.link.callback(move |_| {
+                    Msg::SetBlockEnabled {enabled: !is_enabled, block_index }
+                })>{ "/" }</button>
+                <h3>{ if block_index == 0 {
+                    "authority".to_string()
+                } else {
+                    format!("Block {}", block_index)
+                }
+                }</h3>
             { "Facts:" }
                 <ul>
                     { for block.facts.iter().enumerate()
@@ -363,11 +396,23 @@ impl Default for Caveat {
     }
 }
 
-#[derive(Clone,Debug,Default)]
+#[derive(Clone,Debug)]
 struct Block {
     pub facts: Vec<Fact>,
     pub rules: Vec<Rule>,
     pub caveats: Vec<Caveat>,
+    pub enabled: bool,
+}
+
+impl Default for Block {
+    fn default() -> Self {
+        Block {
+            facts: Vec::new(),
+            rules: Vec::new(),
+            caveats: Vec::new(),
+            enabled: true,
+        }
+    }
 }
 
 #[derive(Clone,Debug,Default)]
@@ -406,28 +451,30 @@ impl Token {
         let mut token = builder.build(&mut rng).unwrap();
 
         for block in self.blocks.iter_mut() {
-            let temp_keypair = KeyPair::new(&mut rng);
-            let mut builder = token.create_block();
+            if block.enabled {
+                let temp_keypair = KeyPair::new(&mut rng);
+                let mut builder = token.create_block();
 
-            for fact in block.facts.iter_mut() {
-                if fact.enabled {
-                    fact.parsed = builder.add_fact(fact.data.as_str()).is_ok();
+                for fact in block.facts.iter_mut() {
+                    if fact.enabled {
+                        fact.parsed = builder.add_fact(fact.data.as_str()).is_ok();
+                    }
                 }
-            }
 
-            for rule in block.rules.iter_mut() {
-                if rule.enabled {
-                    rule.parsed = builder.add_rule(rule.data.as_str()).is_ok();
+                for rule in block.rules.iter_mut() {
+                    if rule.enabled {
+                        rule.parsed = builder.add_rule(rule.data.as_str()).is_ok();
+                    }
                 }
-            }
 
-            for caveat in block.caveats.iter_mut() {
-                if caveat.enabled {
-                    caveat.parsed = builder.add_caveat(caveat.data.as_str()).is_ok();
+                for caveat in block.caveats.iter_mut() {
+                    if caveat.enabled {
+                        caveat.parsed = builder.add_caveat(caveat.data.as_str()).is_ok();
+                    }
                 }
-            }
 
-            token = token.append(&mut rng, &temp_keypair, builder).unwrap();
+                token = token.append(&mut rng, &temp_keypair, builder).unwrap();
+            }
         }
 
         self.biscuit = Some(token);
