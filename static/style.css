@@ -8,3 +8,9 @@ input.parse_error {
     outline: 0 none;
 }
 
+input.caveat_failure {
+    background: #ffa2a2;
+}
+input.caveat_success {
+    background: #c1f1c1;
+}

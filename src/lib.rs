@@ -329,7 +329,7 @@ impl Model {
                 <input
                     type="text"
                     size="50"
-                    class= { if caveat.parsed { "" } else { "parse_error" } }
+                    class= { caveat.class() }
                     value = { caveat.data.clone() }
                     disabled = if !caveat.enabled { true } else { false }
 
@@ -374,7 +374,7 @@ impl Model {
                 </ul>
                 <h4>{"Output"}</h4>
                 <p>{ match &verifier.error {
-                    Some(e) => format!("Error: {}", e),
+                    Some(e) => format!("Error: {:?}", e),
                     None => "Success".to_string(),
                 } }</p>
                 <pre>{ &verifier.output }</pre>
@@ -449,7 +449,7 @@ impl Model {
                 <input
                     type="text"
                     size="50"
-                    class= { if caveat.parsed { "" } else { "parse_error" } }
+                    class= { caveat.class() }
                     value = { caveat.data.clone() }
                     disabled = if !caveat.enabled { true } else { false }
 
@@ -553,6 +553,18 @@ impl Caveat {
             succeeded: None,
         }
     }
+
+    pub fn class(&self) -> &str {
+        if !self.parsed {
+            "parse_error"
+        } else {
+            match self.succeeded {
+                None => "",
+                Some(true) => "caveat_success",
+                Some(false) => "caveat_failure",
+            }
+        }
+    }
 }
 
 #[derive(Clone,Debug)]
@@ -631,6 +643,7 @@ impl Token {
                     if caveat.enabled {
                         caveat.parsed = builder.add_caveat(caveat.data.as_str()).is_ok();
                     }
+                    caveat.succeeded = Some(true);
                 }
 
                 token = token.append(&mut rng, &temp_keypair, builder).unwrap();
@@ -639,6 +652,24 @@ impl Token {
 
         self.verifier.verify(&token, root.public());
         self.biscuit = Some(token);
+
+        if let Some(error::Token::FailedLogic(error::Logic::FailedCaveats(v))) = self.verifier.error.as_ref() {
+            for e in v.iter() {
+                match e {
+                    error::FailedCaveat::Verifier(error::FailedVerifierCaveat { caveat_id, .. }) => {
+                        self.verifier.caveats[*caveat_id as usize].succeeded = Some(false);
+                    },
+                    error::FailedCaveat::Block(error::FailedBlockCaveat { block_id, caveat_id, .. }) => {
+                        if *block_id == 0 {
+                            self.authority.caveats[*caveat_id as usize].succeeded = Some(false);
+                        } else {
+                            self.blocks[*block_id as usize - 1].caveats[*caveat_id as usize].succeeded = Some(false);
+                        }
+                    },
+                }
+
+            }
+        }
     }
 }
 
@@ -673,6 +704,7 @@ impl Verifier {
             if caveat.enabled {
                 caveat.parsed = verifier.add_caveat(caveat.data.as_str()).is_ok();
             }
+            caveat.succeeded = Some(true);
         }
 
         if let Err(e) = verifier.verify() {
