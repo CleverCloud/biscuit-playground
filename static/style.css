@@ -94,6 +94,8 @@ pre {
   width: 200px;
   float: left;
   margin-left: 300px;
+  padding-left: 10px;
+  padding-right: 10px;
 }
 
 #header h2 {
@@ -106,6 +108,10 @@ pre {
   float: left;
 
   font-family: BlinkMacSystemFont,-apple-system,"Segoe UI","Roboto","Oxygen","Ubuntu","Cantarell","Fira Sans","Droid Sans","Helvetica Neue","Helvetica","Arial",sans-serif;
+}
+
+#header img:hover {
+  background: #232831;
 }
 
 @media (min-width: 1100px) {

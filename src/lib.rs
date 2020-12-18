@@ -175,7 +175,7 @@ impl Component for Model {
         html! {
             <div>
                 <div id="header">
-                    <img src="/logo.svg" />
+                    <a href="https://www.clever-cloud.com/"><img src="/logo.svg" /></a>
                     <h2>
                     { "Biscuit Token playground" }
                     </h2>
