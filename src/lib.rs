@@ -6,6 +6,9 @@ use log::*;
 use rand::prelude::*;
 use std::default::Default;
 
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+
 struct Model {
     link: ComponentLink<Self>,
     token: Token,
