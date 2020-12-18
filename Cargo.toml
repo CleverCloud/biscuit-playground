@@ -13,10 +13,10 @@ yew = "0.17"
 wasm-bindgen = "0.2.67"
 biscuit-auth = "0.7"
 rand = "0.7"
-log = "*"
-wasm-logger = "*"
-console_error_panic_hook = "*"
-base64 = "*"
+log = "0.4"
+wasm-logger = "0.2"
+console_error_panic_hook = "0.1"
+base64 = "0.13"
 
 [profile.release]
 debug = true
