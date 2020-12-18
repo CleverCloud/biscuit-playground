@@ -173,40 +173,47 @@ impl Component for Model {
         info!("will show view");
 
         html! {
-            <div id="biscuit-wrapper">
+            <div>
                 <div id="header">
-                    <h2>{ "Biscuit Token playground" }</h2>
-                    <p>{"This is a live demo of the "}
-                      <a href="https://github.com/CleverCloud/biscuit">{"Biscuit authentication and authorization tokens"}</a>{", where you can test different authorization policies. Each token is made of blocks, each block represents one attenuation level: you can restrict the rights of a token by adding a new block. Authorization policies are written in Datalog, where facts represent data, rules generate more facts from existing facts, and caveats check the presence of some facts. To pass the verification phase, all of the caveats must succeed."}
-                    </p>
-                    <p>{"Test the behaviour of the example token by activating or deactivating blocks or their data, changing conditions (like "}<em>{"#read"}</em>{" operation to "}<em>{"#write"}</em>{" and see how the verifier will react"}</p>
+                    <img src="/logo.svg" />
+                    <h2>
+                    { "Biscuit Token playground" }
+                    </h2>
                 </div>
-
-                <div id="token" class="container">
-                    <h3>{"Token"}</h3>
-                    <ul id="block-list">
-                        { self.view_block(0, &self.token.authority) }
-                        { (self.token.blocks.iter()
-                            .enumerate())
-                            .map(|(id, block)| self.view_block(id+1, block))
-                            .collect::<Html>() }
-                        <li><button onclick=self.link.callback(move |_| {
-                            Msg::AddBlock
-                        })>{ "Add Block" }</button></li>
-                    </ul>
-                    <div class="sub-container">
-                        <em>{"Token content:"}</em>
-                        <input
-                            type="text"
-                            size="45"
-                            value = { self.token.serialized.as_deref().unwrap_or("") }
-                        />
-                        <pre id="token-content">
-                            { self.token.biscuit.as_ref().map(|b| b.print()).unwrap_or_else(String::new) }
-                        </pre>
+                <div id="biscuit-wrapper">
+                    <div id="explain">
+                        <p>{"This is a live demo of the "}
+                          <a href="https://github.com/CleverCloud/biscuit">{"Biscuit authentication and authorization tokens"}</a>{", where you can test different authorization policies. Each token is made of blocks, each block represents one attenuation level: you can restrict the rights of a token by adding a new block. Authorization policies are written in Datalog, where facts represent data, rules generate more facts from existing facts, and caveats check the presence of some facts. To pass the verification phase, all of the caveats must succeed."}
+                        </p>
+                        <p>{"Test the behaviour of the example token by activating or deactivating blocks or their data, changing conditions (like "}<em>{"#read"}</em>{" operation to "}<em>{"#write"}</em>{" and see how the verifier will react"}</p>
                     </div>
+
+                    <div id="token" class="container">
+                        <h3>{"Token"}</h3>
+                        <ul id="block-list">
+                            { self.view_block(0, &self.token.authority) }
+                            { (self.token.blocks.iter()
+                                .enumerate())
+                                .map(|(id, block)| self.view_block(id+1, block))
+                                .collect::<Html>() }
+                            <li><button onclick=self.link.callback(move |_| {
+                                Msg::AddBlock
+                            })>{ "Add Block" }</button></li>
+                        </ul>
+                        <div class="sub-container">
+                            <em>{"Token content "}</em>
+                            <input
+                                type="text"
+                                size="45"
+                                value = { self.token.serialized.as_deref().unwrap_or("") }
+                            />
+                            <pre id="token-content">
+                                { self.token.biscuit.as_ref().map(|b| b.print()).unwrap_or_else(String::new) }
+                            </pre>
+                        </div>
+                    </div>
+                    { self.view_verifier(&self.token.verifier) }
                 </div>
-                { self.view_verifier(&self.token.verifier) }
             </div>
         }
     }
@@ -420,7 +427,7 @@ impl Model {
                 </div>
 
                 <div class="sub-container">
-                    <h4>{"Output"}</h4>
+                    <h4>{"Verifier result"}</h4>
                     <p id="verifier-result">{ match &verifier.error {
                         Some(e) => format!("Error: {:?}", e),
                         None => "Success".to_string(),
