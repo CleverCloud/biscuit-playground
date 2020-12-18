@@ -172,9 +172,9 @@ impl Component for Model {
         html! {
             <div id="biscuit-wrapper">
                 <h2>{ "Biscuit Token playground" }</h2>
-                <div id="token">
-                    <em>{"Blocks:"}</em>
-                    <ul>
+                <div id="token" class="container">
+                    <h3>{"Token"}</h3>
+                    <ul id="block-list">
                         { self.view_block(0, &self.token.authority) }
                         { (self.token.blocks.iter()
                             .enumerate())
@@ -184,15 +184,17 @@ impl Component for Model {
                             Msg::AddBlock
                         })>{ "Add Block" }</button></li>
                     </ul>
-                    <em>{"Token content:"}</em>
-                    <input
-                        type="text"
-                        size="40"
-                        value = { self.token.serialized.as_deref().unwrap_or("") }
-                    />
-                    <pre id="token-content">
-                        { self.token.biscuit.as_ref().map(|b| b.print()).unwrap_or_else(String::new) }
-                    </pre>
+                    <div class="sub-container">
+                        <em>{"Token content:"}</em>
+                        <input
+                            type="text"
+                            size="45"
+                            value = { self.token.serialized.as_deref().unwrap_or("") }
+                        />
+                        <pre id="token-content">
+                            { self.token.biscuit.as_ref().map(|b| b.print()).unwrap_or_else(String::new) }
+                        </pre>
+                    </div>
                 </div>
                 { self.view_verifier(&self.token.verifier) }
             </div>
@@ -205,54 +207,63 @@ impl Model {
         let is_enabled = block.enabled;
 
         html! {
-            <li class={ if is_enabled { "" } else { "block-disabled" } }>
+            <li class={ if is_enabled { "sub-container" } else { "sub-container block-disabled" } }>
                 <div class="block">
                     <div>
 
-                        <h3>{ if block_index == 0 {
-                            "Authority block".to_string()
-                        } else {
-                            format!("Block {}", block_index)
-                        }
-                        }</h3>
-                        <button onclick=self.link.callback(move |_| {
-                            Msg::DeleteBlock { block_index }
-                        })
-                            hidden = { block_index == 0 }
-                        >{ "-" }</button>
-                        <input type="checkbox"
-                            onclick = self.link.callback(move |_| {
-                                Msg::SetBlockEnabled {enabled: !is_enabled, block_index }
+                        <span>
+                            <button onclick=self.link.callback(move |_| {
+                                Msg::DeleteBlock { block_index }
                             })
-                            checked = { is_enabled }
-                            hidden = { block_index == 0 }
-                        />
+                                hidden = { block_index == 0 }
+                            >{ "-" }</button>
+                            <input type="checkbox"
+                                onclick = self.link.callback(move |_| {
+                                    Msg::SetBlockEnabled {enabled: !is_enabled, block_index }
+                                })
+                                checked = { is_enabled }
+                                hidden = { block_index == 0 }
+                            />
+                            <h4 style="display:inline">{ if block_index == 0 {
+                                "Authority block".to_string()
+                            } else {
+                                format!("Block {}", block_index)
+                            }
+                            }</h4>
+                        </span>
+                        <br />
                     </div>
 
-                { "Facts:" }
+                <span>
                 <button onclick=self.link.callback(move |_| {
                     Msg::AddElement { kind: Kind::Fact, block_index }
                 })>{ "+" }</button>
+                { "Facts" }
+                </span>
                 <ul>
                     { for block.facts.iter().enumerate()
                         .map(|(fact_index, fact)| self.view_fact(block_index, fact_index, fact))
                     }
                 </ul>
 
-                { "Rules:" }
+                <span>
                 <button onclick=self.link.callback(move |_| {
                     Msg::AddElement { kind: Kind::Rule, block_index }
                 })>{ "+" }</button>
+                { "Rules" }
+                </span>
                 <ul>
                     { for block.rules.iter().enumerate()
                         .map(|(rule_index, rule)| self.view_rule(block_index, rule_index, rule))
                     }
                 </ul>
 
-                { "Caveats:" }
+                <span>
                 <button onclick=self.link.callback(move |_| {
                     Msg::AddElement { kind: Kind::Caveat, block_index }
                 })>{ "+" }</button>
+                { "Caveats" }
+                </span>
                 <ul>
                     { for block.caveats.iter().enumerate()
                         .map(|(caveat_index, caveat)| self.view_caveat(block_index, caveat_index, caveat))
@@ -279,7 +290,7 @@ impl Model {
                 />
                 <input
                     type="text"
-                    size="40"
+                    size="45"
                     class= { if fact.parsed { "" } else { "parse_error" } }
                     value = { fact.data.clone() }
                     disabled = if !fact.enabled { true } else { false }
@@ -308,7 +319,7 @@ impl Model {
                 />
                 <input
                     type="text"
-                    size="40"
+                    size="45"
                     class= { if rule.parsed { "" } else { "parse_error" } }
                     value = { rule.data.clone() }
                     disabled = if !rule.enabled { true } else { false }
@@ -339,7 +350,7 @@ impl Model {
                 />
                 <input
                     type="text"
-                    size="40"
+                    size="45"
                     class= { caveat.class() }
                     value = { caveat.data.clone() }
                     disabled = if !caveat.enabled { true } else { false }
@@ -354,49 +365,59 @@ impl Model {
 
     fn view_verifier(&self, verifier: &Verifier) -> Html {
         html! {
-            <div id="verifier">
+            <div id="verifier" class="container">
                 <h3>{"Verifier"}</h3>
 
-                { "Facts:" }
-                <button onclick=self.link.callback(move |_| {
-                    Msg::AddVerifierElement { kind: Kind::Fact }
-                })>{ "+" }</button>
+                <div class="sub-container">
+                    <span>
+                        <button onclick=self.link.callback(move |_| {
+                            Msg::AddVerifierElement { kind: Kind::Fact }
+                        })>{ "+" }</button>
+                        { "Facts" }
+                    </span>
 
-                <ul>
-                    { for verifier.facts.iter().enumerate()
-                        .map(|(fact_index, fact)| self.view_verifier_fact(fact_index, fact))
-                    }
-                </ul>
+                    <ul>
+                        { for verifier.facts.iter().enumerate()
+                            .map(|(fact_index, fact)| self.view_verifier_fact(fact_index, fact))
+                        }
+                    </ul>
 
-                { "Rules:" }
-                <button onclick=self.link.callback(move |_| {
-                    Msg::AddVerifierElement { kind: Kind::Rule }
-                })>{ "+" }</button>
+                    <span>
+                        <button onclick=self.link.callback(move |_| {
+                            Msg::AddVerifierElement { kind: Kind::Rule }
+                        })>{ "+" }</button>
+                        { "Rules" }
+                    </span>
 
-                <ul>
-                    { for verifier.rules.iter().enumerate()
-                        .map(|(rule_index, rule)| self.view_verifier_rule(rule_index, rule))
-                    }
-                </ul>
+                    <ul>
+                        { for verifier.rules.iter().enumerate()
+                            .map(|(rule_index, rule)| self.view_verifier_rule(rule_index, rule))
+                        }
+                    </ul>
 
-                { "Caveats:" }
-                <button onclick=self.link.callback(move |_| {
-                    Msg::AddVerifierElement { kind: Kind::Caveat }
-                })>{ "+" }</button>
+                    <span>
+                        <button onclick=self.link.callback(move |_| {
+                            Msg::AddVerifierElement { kind: Kind::Caveat }
+                        })>{ "+" }</button>
+                        { "Caveats" }
+                    </span>
 
-                <ul>
-                    { for verifier.caveats.iter().enumerate()
-                        .map(|(caveat_index, caveat)| self.view_verifier_caveat(caveat_index, caveat))
-                    }
-                </ul>
+                    <ul>
+                        { for verifier.caveats.iter().enumerate()
+                            .map(|(caveat_index, caveat)| self.view_verifier_caveat(caveat_index, caveat))
+                        }
+                    </ul>
+                </div>
 
-                <h4>{"Output"}</h4>
-                <p id="verifier-result">{ match &verifier.error {
-                    Some(e) => format!("Error: {:?}", e),
-                    None => "Success".to_string(),
-                } }</p>
+                <div class="sub-container">
+                    <h4>{"Output"}</h4>
+                    <p id="verifier-result">{ match &verifier.error {
+                        Some(e) => format!("Error: {:?}", e),
+                        None => "Success".to_string(),
+                    } }</p>
 
-                <pre id="verifier-world">{ &verifier.output }</pre>
+                    <pre id="verifier-world">{ &verifier.output }</pre>
+                </div>
 
             </div>
         }
@@ -418,7 +439,7 @@ impl Model {
                 />
                 <input
                     type="text"
-                    size="40"
+                    size="45"
                     class= { if fact.parsed { "" } else { "parse_error" } }
                     value = { fact.data.clone() }
                     disabled = if !fact.enabled { true } else { false }
@@ -447,7 +468,7 @@ impl Model {
                 />
                 <input
                     type="text"
-                    size="40"
+                    size="45"
                     class= { if rule.parsed { "" } else { "parse_error" } }
                     value = { rule.data.clone() }
                     disabled = if !rule.enabled { true } else { false }
@@ -478,7 +499,7 @@ impl Model {
                 />
                 <input
                     type="text"
-                    size="40"
+                    size="45"
                     class= { caveat.class() }
                     value = { caveat.data.clone() }
                     disabled = if !caveat.enabled { true } else { false }
@@ -756,11 +777,17 @@ impl Token {
                 for caveat in block.caveats.iter_mut() {
                     if caveat.enabled {
                         caveat.parsed = builder.add_caveat(caveat.data.as_str()).is_ok();
+                        caveat.succeeded = Some(true);
+                    } else {
+                        caveat.succeeded = None;
                     }
-                    caveat.succeeded = Some(true);
                 }
 
                 token = token.append(&mut rng, &temp_keypair, builder).unwrap();
+            } else {
+                for caveat in block.caveats.iter_mut() {
+                    caveat.succeeded = None;
+                }
             }
         }
 
@@ -819,8 +846,10 @@ impl Verifier {
         for caveat in self.caveats.iter_mut() {
             if caveat.enabled {
                 caveat.parsed = verifier.add_caveat(caveat.data.as_str()).is_ok();
+                caveat.succeeded = Some(true);
+            } else {
+                caveat.succeeded = None;
             }
-            caveat.succeeded = Some(true);
         }
 
         if let Err(e) = verifier.verify() {

@@ -1,10 +1,45 @@
+body {
+    background: #242933;
+    color: #dfe4ed;
+    font-size: 1em;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
 li {
     list-style-type: none;
 }
 
+button {
+  height: 24px;
+  min-width: 24px;
+  margin-right: 5px;
+}
+
+.container {
+    background-color: #2E3440;
+    border-radius: 6px;
+    box-shadow: 0 0.5em 1em -0.125em rgba(216,222,233,0.1), 0 0px 0 1px rgba(216,222,233,0.02);
+    color: #dfe4ed;
+    display: block;
+    padding: 1.25rem;
+}
+
+.sub-container {
+  background-color: #434C5E;
+  border-radius: 4px;
+  font-size: 1rem;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+ul#block-list {
+  padding: 0;
+}
+
 input.parse_error {
-    border-color: rgba(229, 103, 23, 0.8);
-    box-shadow: 0 1px 1px rgba(229, 103, 23, 0.075) inset, 0 0 8px rgba(229, 103, 23, 0.6);
+    border-color: #f30c0c;
+    box-shadow: 0 1px 1px #f30c0c inset, 0 0 8px #f30c0c;
     outline: 0 none;
 }
 
@@ -21,7 +56,7 @@ input.caveat_success {
 }
 
 li.caveat_success::after {
-    content: "✔️";
+    content: "✅";
 }
 
 pre {
@@ -29,7 +64,12 @@ pre {
 }
 
 .block-disabled {
-  background: #e6e6e6;
+  background: #2E3440;
+}
+
+#biscuit-wrapper h2 {
+  background-color: #2E3440;
+  color: #D8DEE9;
 }
 
 @media (min-width: 950px) {
