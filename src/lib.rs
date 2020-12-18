@@ -174,7 +174,14 @@ impl Component for Model {
 
         html! {
             <div id="biscuit-wrapper">
-                <h2>{ "Biscuit Token playground" }</h2>
+                <div id="header">
+                    <h2>{ "Biscuit Token playground" }</h2>
+                    <p>{"This is a live demo of the "}
+                      <a href="https://github.com/CleverCloud/biscuit">{"Biscuit authentication and authorization tokens"}</a>{", where you can test different authorization policies. Each token is made of blocks, each block represents one attenuation level: you can restrict the rights of a token by adding a new block. Authorization policies are written in Datalog, where facts represent data, rules generate more facts from existing facts, and caveats check the presence of some facts. To pass the verification phase, all of the caveats must succeed."}
+                    </p>
+                    <p>{"Test the behaviour of the example token by activating or deactivating blocks or their data, changing conditions (like "}<em>{"#read"}</em>{" operation to "}<em>{"#write"}</em>{" and see how the verifier will react"}</p>
+                </div>
+
                 <div id="token" class="container">
                     <h3>{"Token"}</h3>
                     <ul id="block-list">
