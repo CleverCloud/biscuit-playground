@@ -1,0 +1,30 @@
+<html>
+  <head>
+    <link rel="stylesheet" href="/codemirror/lib/codemirror.css">
+    <script type="text/javascript" src="/codemirror/lib/codemirror.js"></script>
+    <script type="text/javascript" src="/codemirror/addon/mode/simple.js"></script>
+  </head>
+  <body>
+    <textarea id="editor" style=" width:500px; height: 1000px; margin: auto">
+    // this is a comment
+    check if operation(#ambient, #read)
+
+    check if
+        test1(1, 2), test2([abc])
+        or test3(1999-12-31T12:59:59+00:00)
+
+    allow if resource(#ambient, "/file/hello"), 1 < 2 && $var0.starts_with("hello")
+
+    deny if false
+
+    rule_head($myvar) <- resource($var1, $myvar)
+
+    /* other
+
+    comment */
+    </textarea>
+
+    <script type="text/javascript" src="/editor.js"></script>
+  </body>
+</html>
+
