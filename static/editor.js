@@ -58,9 +58,10 @@ CodeMirror.defineSimpleMode("biscuit", {
   }
 });
 
+/*
 let cm = new CodeMirror.fromTextArea(document.getElementById("editor"), {
-//let cm = CodeMirror(document.getElementById("editor"), {
   mode: 'biscuit',
   autoCloseTags: true,
   lineNumbers: true
 });
+*/

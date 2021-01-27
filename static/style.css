@@ -74,6 +74,14 @@ li.caveat_success::after {
     content: "✅";
 }
 
+pre.CodeMirror-line.caveat_failure {
+    background: #ffa2a2;
+}
+
+pre.CodeMirror-line.caveat_success {
+    background: #c1f1c1;
+}
+
 pre {
     white-space: pre-wrap;
 }
@@ -112,6 +120,11 @@ pre {
 
 #header img:hover {
   background: #232831;
+}
+
+.code {
+  height: 200px;
+  width: 100%;
 }
 
 @media (min-width: 1100px) {

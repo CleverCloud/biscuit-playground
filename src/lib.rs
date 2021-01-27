@@ -1,10 +1,13 @@
 #![recursion_limit="512"]
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
-use biscuit_auth::{token::Biscuit, crypto::{KeyPair, PublicKey}, error};
+use biscuit_auth::{token::Biscuit, crypto::{KeyPair, PublicKey}, error,
+  parser::{parse_source, SourceResult},
+};
 use log::*;
 use rand::prelude::*;
 use std::default::Default;
+use nom::Offset;
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
@@ -14,25 +17,12 @@ struct Model {
     token: Token,
 }
 
-enum Kind {
-    Fact,
-    Rule,
-    Check,
-}
-
 enum Msg {
     AddBlock,
     DeleteBlock { block_index: usize },
     SetBlockEnabled { block_index: usize, enabled: bool },
-    AddElement { kind: Kind, block_index: usize, },
-    DeleteElement { kind: Kind, block_index: usize, element_index: usize, },
-    SetEnabled { enabled: bool, kind: Kind, block_index: usize, element_index: usize, },
-    Update { kind: Kind, block_index: usize, element_index: usize, value: String, },
-
-    AddVerifierElement { kind: Kind },
-    DeleteVerifierElement { kind: Kind, element_index: usize, },
-    SetVerifierEnabled { enabled: bool, kind: Kind, element_index: usize, },
-    VerifierUpdate { kind: Kind, element_index: usize, value: String, },
+    UpdateBlockCode { block_index: usize, value: String, },
+    UpdateVerifierCode { value: String, },
 
     None,
 }
@@ -61,98 +51,17 @@ impl Component for Model {
                     self.token.blocks[block_index - 1].enabled = enabled;
                 }
             },
-            Msg::AddElement { kind, block_index } => {
+            Msg::UpdateBlockCode { block_index, value, } => {
                 let block = if block_index == 0 {
                     &mut self.token.authority
                 } else {
                     &mut self.token.blocks[block_index-1]
                 };
 
-                match kind {
-                    Kind::Fact => block.facts.push(Fact::default()),
-                    Kind::Rule => block.rules.push(Rule::default()),
-                    Kind::Check => block.checks.push(Check::default()),
-                }
+                block.code = value;
             },
-            Msg::DeleteElement { kind, block_index, element_index, } => {
-                let block = if block_index == 0 {
-                    &mut self.token.authority
-                } else {
-                    &mut self.token.blocks[block_index-1]
-                };
-
-                match kind {
-                    Kind::Fact => {
-                        block.facts.remove(element_index);
-                    },
-                    Kind::Rule => {
-                        block.rules.remove(element_index);
-                    },
-                    Kind::Check => {
-                        block.checks.remove(element_index);
-                    },
-                }
-            },
-            Msg::SetEnabled { enabled, kind, block_index, element_index, } => {
-                let block = if block_index == 0 {
-                    &mut self.token.authority
-                } else {
-                    &mut self.token.blocks[block_index-1]
-                };
-
-                match kind {
-                    Kind::Fact => block.facts[element_index].enabled = enabled,
-                    Kind::Rule => block.rules[element_index].enabled = enabled,
-                    Kind::Check => block.checks[element_index].enabled = enabled,
-                }
-            },
-            Msg::Update { kind, block_index, element_index, value, } => {
-                let block = if block_index == 0 {
-                    &mut self.token.authority
-                } else {
-                    &mut self.token.blocks[block_index-1]
-                };
-
-                match kind {
-                    Kind::Fact => block.facts[element_index].data = value,
-                    Kind::Rule => block.rules[element_index].data = value,
-                    Kind::Check => block.checks[element_index].data = value,
-                }
-            },
-            Msg::AddVerifierElement { kind } => {
-                match kind {
-                    Kind::Fact => self.token.verifier.facts.push(Fact::default()),
-                    Kind::Rule => self.token.verifier.rules.push(Rule::default()),
-                    Kind::Check => self.token.verifier.checks.push(Check::default()),
-                }
-            },
-            Msg::DeleteVerifierElement { kind, element_index, } => {
-                match kind {
-                    Kind::Fact => {
-                        self.token.verifier.facts.remove(element_index);
-                    },
-                    Kind::Rule => {
-                        self.token.verifier.rules.remove(element_index);
-                    },
-                    Kind::Check => {
-                        self.token.verifier.checks.remove(element_index);
-                    },
-                }
-            },
-            Msg::SetVerifierEnabled { enabled, kind, element_index, } => {
-
-                match kind {
-                    Kind::Fact => self.token.verifier.facts[element_index].enabled = enabled,
-                    Kind::Rule => self.token.verifier.rules[element_index].enabled = enabled,
-                    Kind::Check => self.token.verifier.checks[element_index].enabled = enabled,
-                }
-            },
-            Msg::VerifierUpdate { kind, element_index, value, } => {
-                match kind {
-                    Kind::Fact => self.token.verifier.facts[element_index].data = value,
-                    Kind::Rule => self.token.verifier.rules[element_index].data = value,
-                    Kind::Check => self.token.verifier.checks[element_index].data = value,
-                }
+            Msg::UpdateVerifierCode { value, } => {
+                self.token.verifier.code = value;
             },
             Msg::None => {},
         }
@@ -251,132 +160,20 @@ impl Model {
                         <br />
                     </div>
 
-                <span>
-                <button onclick=self.link.callback(move |_| {
-                    Msg::AddElement { kind: Kind::Fact, block_index }
-                })>{ "+" }</button>
-                { "Facts" }
-                </span>
-                <ul>
-                    { for block.facts.iter().enumerate()
-                        .map(|(fact_index, fact)| self.view_fact(block_index, fact_index, fact))
-                    }
-                </ul>
-
-                <span>
-                <button onclick=self.link.callback(move |_| {
-                    Msg::AddElement { kind: Kind::Rule, block_index }
-                })>{ "+" }</button>
-                { "Rules" }
-                </span>
-                <ul>
-                    { for block.rules.iter().enumerate()
-                        .map(|(rule_index, rule)| self.view_rule(block_index, rule_index, rule))
-                    }
-                </ul>
-
-                <span>
-                <button onclick=self.link.callback(move |_| {
-                    Msg::AddElement { kind: Kind::Check, block_index }
-                })>{ "+" }</button>
-                { "Checks" }
-                </span>
-                <ul>
-                    { for block.checks.iter().enumerate()
-                        .map(|(check_index, check)| self.view_check(block_index, check_index, check))
-                    }
-                </ul>
+                    <textarea
+                        class="code-buffer"
+                        style="display: none"
+                        id={ format!("block-code-{}-buffer", block_index) }
+                        oninput=self.link.callback(move |e: InputData| {
+                            Msg::UpdateBlockCode { block_index, value: e.value }
+                        })
+                    >{ &block.code }</textarea>
+                    <textarea
+                        class="code"
+                        id={ format!("block-code-{}", block_index) }
+                    ></textarea>
                 </div>
             </li>
-        }
-    }
-
-    fn view_fact(&self, block_index: usize, element_index: usize, fact: &Fact) -> Html {
-        let is_enabled = fact.enabled;
-
-        html! {
-            <li>
-                <button onclick=self.link.callback(move |_| {
-                    Msg::DeleteElement { kind: Kind::Fact, block_index, element_index }
-                })>{ "-" }</button>
-                <input type="checkbox"
-                    onclick = self.link.callback(move |_| {
-                        Msg::SetEnabled {kind: Kind::Fact, enabled: !is_enabled, block_index, element_index }
-                    })
-                    checked = { is_enabled }
-                />
-                <input
-                    type="text"
-                    size="45"
-                    class= { if fact.parsed { "" } else { "parse_error" } }
-                    value = { fact.data.clone() }
-                    disabled = if !fact.enabled { true } else { false }
-
-                    oninput=self.link.callback(move |e: InputData| {
-                        Msg::Update { kind: Kind::Fact, block_index, element_index, value: e.value }
-                    })
-                    />
-           </li>
-        }
-    }
-
-    fn view_rule(&self, block_index: usize, element_index: usize, rule: &Rule) -> Html {
-        let is_enabled = rule.enabled;
-
-        html! {
-            <li>
-                <button onclick=self.link.callback(move |_| {
-                    Msg::DeleteElement { kind: Kind::Rule, block_index, element_index }
-                })>{ "-" }</button>
-                <input type="checkbox"
-                    onclick = self.link.callback(move |_| {
-                        Msg::SetEnabled {kind: Kind::Rule, enabled: !is_enabled, block_index, element_index }
-                    })
-                    checked = { is_enabled }
-                />
-                <input
-                    type="text"
-                    size="45"
-                    class= { if rule.parsed { "" } else { "parse_error" } }
-                    value = { rule.data.clone() }
-                    disabled = if !rule.enabled { true } else { false }
-
-                    oninput=self.link.callback(move |e: InputData| {
-                        Msg::Update { kind: Kind::Rule, block_index, element_index, value: e.value }
-                    })
-                    />
-           </li>
-        }
-    }
-
-    fn view_check(&self, block_index: usize, element_index: usize, check: &Check) -> Html {
-        let is_enabled = check.enabled;
-
-        html! {
-            <li
-                class= { check.class() }
-            >
-                <button onclick=self.link.callback(move |_| {
-                    Msg::DeleteElement { kind: Kind::Check, block_index, element_index }
-                })>{ "-" }</button>
-                <input type="checkbox"
-                    onclick = self.link.callback(move |_| {
-                        Msg::SetEnabled {kind: Kind::Check, enabled: !is_enabled, block_index, element_index }
-                    })
-                    checked = { is_enabled }
-                />
-                <input
-                    type="text"
-                    size="45"
-                    class= { check.class() }
-                    value = { check.data.clone() }
-                    disabled = if !check.enabled { true } else { false }
-
-                    oninput=self.link.callback(move |e: InputData| {
-                        Msg::Update { kind: Kind::Check, block_index, element_index, value: e.value }
-                    })
-                    />
-           </li>
         }
     }
 
@@ -386,44 +183,18 @@ impl Model {
                 <h3>{"Verifier"}</h3>
 
                 <div class="sub-container">
-                    <span>
-                        <button onclick=self.link.callback(move |_| {
-                            Msg::AddVerifierElement { kind: Kind::Fact }
-                        })>{ "+" }</button>
-                        { "Facts" }
-                    </span>
-
-                    <ul>
-                        { for verifier.facts.iter().enumerate()
-                            .map(|(fact_index, fact)| self.view_verifier_fact(fact_index, fact))
-                        }
-                    </ul>
-
-                    <span>
-                        <button onclick=self.link.callback(move |_| {
-                            Msg::AddVerifierElement { kind: Kind::Rule }
-                        })>{ "+" }</button>
-                        { "Rules" }
-                    </span>
-
-                    <ul>
-                        { for verifier.rules.iter().enumerate()
-                            .map(|(rule_index, rule)| self.view_verifier_rule(rule_index, rule))
-                        }
-                    </ul>
-
-                    <span>
-                        <button onclick=self.link.callback(move |_| {
-                            Msg::AddVerifierElement { kind: Kind::Check }
-                        })>{ "+" }</button>
-                        { "Checks" }
-                    </span>
-
-                    <ul>
-                        { for verifier.checks.iter().enumerate()
-                            .map(|(check_index, check)| self.view_verifier_check(check_index, check))
-                        }
-                    </ul>
+                    <textarea
+                        class="code-buffer"
+                        id = "verifier-code-buffer"
+                        style="display: none"
+                        oninput=self.link.callback(move |e: InputData| {
+                            Msg::UpdateVerifierCode { value: e.value }
+                        })
+                    >{ &verifier.code }</textarea>
+                    <textarea
+                        class="code"
+                        id = "verifier-code"
+                    ></textarea>
                 </div>
 
                 <div class="sub-container">
@@ -437,95 +208,6 @@ impl Model {
                 </div>
 
             </div>
-        }
-    }
-
-    fn view_verifier_fact(&self, element_index: usize, fact: &Fact) -> Html {
-        let is_enabled = fact.enabled;
-
-        html! {
-            <li>
-                <button onclick=self.link.callback(move |_| {
-                    Msg::DeleteVerifierElement { kind: Kind::Fact, element_index }
-                })>{ "-" }</button>
-                <input type="checkbox"
-                    onclick = self.link.callback(move |_| {
-                        Msg::SetVerifierEnabled {kind: Kind::Fact, enabled: !is_enabled, element_index }
-                    })
-                    checked = { is_enabled }
-                />
-                <input
-                    type="text"
-                    size="45"
-                    class= { if fact.parsed { "" } else { "parse_error" } }
-                    value = { fact.data.clone() }
-                    disabled = if !fact.enabled { true } else { false }
-
-                    oninput=self.link.callback(move |e: InputData| {
-                        Msg::VerifierUpdate { kind: Kind::Fact, element_index, value: e.value }
-                    })
-                    />
-           </li>
-        }
-    }
-
-    fn view_verifier_rule(&self, element_index: usize, rule: &Rule) -> Html {
-        let is_enabled = rule.enabled;
-
-        html! {
-            <li>
-                <button onclick=self.link.callback(move |_| {
-                    Msg::DeleteVerifierElement { kind: Kind::Rule, element_index }
-                })>{ "-" }</button>
-                <input type="checkbox"
-                    onclick = self.link.callback(move |_| {
-                        Msg::SetVerifierEnabled {kind: Kind::Rule, enabled: !is_enabled, element_index }
-                    })
-                    checked = { is_enabled }
-                />
-                <input
-                    type="text"
-                    size="45"
-                    class= { if rule.parsed { "" } else { "parse_error" } }
-                    value = { rule.data.clone() }
-                    disabled = if !rule.enabled { true } else { false }
-
-                    oninput=self.link.callback(move |e: InputData| {
-                        Msg::VerifierUpdate { kind: Kind::Rule, element_index, value: e.value }
-                    })
-                    />
-           </li>
-        }
-    }
-
-    fn view_verifier_check(&self, element_index: usize, check: &Check) -> Html {
-        let is_enabled = check.enabled;
-
-        html! {
-            <li
-                class= { check.class() }
-            >
-                <button onclick=self.link.callback(move |_| {
-                    Msg::DeleteVerifierElement { kind: Kind::Check, element_index }
-                })>{ "-" }</button>
-                <input type="checkbox"
-                    onclick = self.link.callback(move |_| {
-                        Msg::SetVerifierEnabled {kind: Kind::Check, enabled: !is_enabled, element_index }
-                    })
-                    checked = { is_enabled }
-                />
-                <input
-                    type="text"
-                    size="45"
-                    class= { check.class() }
-                    value = { check.data.clone() }
-                    disabled = if !check.enabled { true } else { false }
-
-                    oninput=self.link.callback(move |e: InputData| {
-                        Msg::VerifierUpdate { kind: Kind::Check, element_index, value: e.value }
-                    })
-                    />
-           </li>
         }
     }
 }
@@ -636,18 +318,80 @@ impl Check {
 }
 
 #[derive(Clone,Debug)]
+struct SourcePosition {
+    line_start: usize,
+    column_start: usize,
+    line_end: usize,
+    column_end: usize,
+}
+
+// based on nom's convert_error
+fn get_position(input: &str, span: &str) -> SourcePosition {
+    let offset = input.offset(span);
+    let prefix = &input.as_bytes()[..offset];
+
+    // Count the number of newlines in the first `offset` bytes of input
+    let line_start = prefix.iter().filter(|&&b| b == b'\n').count() + 1;
+
+    // Find the line that includes the subslice:
+    // ind the *last* newline before the substring starts
+    let line_begin = prefix
+        .iter()
+        .rev()
+        .position(|&b| b == b'\n')
+        .map(|pos| offset - pos)
+        .unwrap_or(0);
+
+    // Find the full line after that newline
+    let line = input[line_begin..]
+        .lines()
+        .next()
+        .unwrap_or(&input[line_begin..])
+        .trim_end();
+
+    // The (1-indexed) column number is the offset of our substring into that line
+    let column_start = line.offset(span) + 1;
+
+    let offset = offset + span.len();
+    let prefix = &input.as_bytes()[..offset];
+
+    // Count the number of newlines in the first `offset` bytes of input
+    let line_end = prefix.iter().filter(|&&b| b == b'\n').count() + 1;
+
+    // Find the line that includes the subslice:
+    // ind the *last* newline before the substring starts
+    let line_begin = prefix
+        .iter()
+        .rev()
+        .position(|&b| b == b'\n')
+        .map(|pos| offset - pos)
+        .unwrap_or(0);
+
+    // Find the full line after that newline
+    let line = input[line_begin..]
+        .lines()
+        .next()
+        .unwrap_or(&input[line_begin..])
+        .trim_end();
+
+    // The (1-indexed) column number is the offset of our substring into that line
+    let column_end = line.offset(&span[span.len()..]) + 1;
+
+    SourcePosition { line_start, column_start, line_end, column_end }
+}
+
+
+#[derive(Clone,Debug)]
 struct Block {
-    pub facts: Vec<Fact>,
-    pub rules: Vec<Rule>,
-    pub checks: Vec<Check>,
+    pub code: String,
+    pub checks: Vec<SourcePosition>,
     pub enabled: bool,
 }
 
 impl Default for Block {
     fn default() -> Self {
         Block {
-            facts: Vec::new(),
-            rules: Vec::new(),
+            code: String::new(),
             checks: Vec::new(),
             enabled: true,
         }
@@ -669,21 +413,36 @@ impl Token {
         token.blocks.push(Block::default());
         token.blocks.push(Block::default());
 
-        token.authority.facts.push(Fact::new("right(#authority, \"/folder1/file1\", #read)"));
-        token.authority.facts.push(Fact::new("right(#authority, \"/folder1/file1\", #write)"));
-        token.authority.facts.push(Fact::new("right(#authority, \"/folder2/file1\", #read)"));
+        token.authority.code = r#"right(#authority, "/folder1/file1", #read)
+right(#authority, "/folder1/file1", #write)
+right(#authority, "/folder2/file1", #read)
 
-        token.blocks[0].checks.push(Check::new("*check(#read) <- operation(#ambient, #read)"));
-        token.blocks[1].checks.push(Check::new("*check($file) <- resource(#ambient, $file) @ $file matches /folder1/*"));
+check if operation(#ambient, #read)
+"#.to_string();
+
+        token.blocks[0].code = r#"check if resource(#ambient, $file), $file.starts_with("/folder1/")
+"#.to_string();
+
 
         // simulate verification for PUT /blog1/article1
+        token.verifier.code = r#"resource(#ambient, "/folder1/file1")
+operation(#ambient, #read)
+
+check if resource(#ambient, $file), operation(#ambient, $op), right(#authority, $file, $op)
+
+allow if true
+"#.to_string();
+
+        /*
         token.verifier.facts.push(Fact::new("resource(#ambient, \"/folder1/file1\")"));
         token.verifier.facts.push(Fact::new("operation(#ambient, #read)"));
         token.verifier.checks.push(Check::new("*check($file) <- resource(#ambient, $file), operation(#ambient, $op), right(#authority, $file, $op)"));
+        */
 
         token
     }
 
+    /*
     fn newspaper_scenario() -> Self {
         let mut token = Token::default();
         token.authority.facts.push(Fact::new("user(#authority, \"user_1234\")"));
@@ -745,66 +504,70 @@ impl Token {
              ));
 
         token
-    }
+    }*/
 
     fn generate(&mut self) {
-        info!("generate token: {:?}", self);
+        //info!("generate token: {:?}", self);
+        info!("will generate token");
+
+        unsafe { clear_marks() };
+
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let root = KeyPair::new_with_rng(&mut rng);
 
         let mut builder = Biscuit::builder(&root);
 
-        for fact in self.authority.facts.iter_mut() {
-            if fact.enabled {
-                fact.parsed = builder.add_authority_fact(fact.data.as_str()).is_ok();
+        self.authority.checks.clear();
+        if let Ok((_, authority_parsed)) = parse_source(&self.authority.code) {
+            for (_,fact) in authority_parsed.facts.iter() {
+                builder.add_authority_fact(fact.clone()).unwrap();
             }
-        }
 
-        for rule in self.authority.rules.iter_mut() {
-            if rule.enabled {
-                rule.parsed = builder.add_authority_rule(rule.data.as_str()).is_ok();
+            for (_,rule) in authority_parsed.rules.iter() {
+                builder.add_authority_rule(rule.clone()).unwrap();
             }
-        }
 
-        for check in self.authority.checks.iter_mut() {
-            if check.enabled {
-                check.parsed = builder.add_authority_check(check.data.as_str()).is_ok();
+            for (i,check) in authority_parsed.checks.iter() {
+                builder.add_authority_check(check.clone()).unwrap();
+                let position = get_position(&self.authority.code, i);
+                self.authority.checks.push(position);
             }
         }
 
         let mut token = builder.build_with_rng(&mut rng).unwrap();
 
         for block in self.blocks.iter_mut() {
+
+            block.checks.clear();
+
             if block.enabled {
                 let temp_keypair = KeyPair::new_with_rng(&mut rng);
                 let mut builder = token.create_block();
 
-                for fact in block.facts.iter_mut() {
-                    if fact.enabled {
-                        fact.parsed = builder.add_fact(fact.data.as_str()).is_ok();
+                if let Ok((_, block_parsed)) = parse_source(&block.code) {
+                    for (_,fact) in block_parsed.facts.iter() {
+                        builder.add_fact(fact.clone()).unwrap();
                     }
-                }
 
-                for rule in block.rules.iter_mut() {
-                    if rule.enabled {
-                        rule.parsed = builder.add_rule(rule.data.as_str()).is_ok();
+                    for (_,rule) in block_parsed.rules.iter() {
+                        builder.add_rule(rule.clone()).unwrap();
                     }
-                }
 
-                for check in block.checks.iter_mut() {
-                    if check.enabled {
-                        check.parsed = builder.add_check(check.data.as_str()).is_ok();
-                        check.succeeded = Some(true);
-                    } else {
-                        check.succeeded = None;
+                    for (i,check) in block_parsed.checks.iter() {
+                        builder.add_check(check.clone()).unwrap();
+                        let position = get_position(&block.code, i);
+                        block.checks.push(position);
                     }
                 }
 
                 token = token.append_with_rng(&mut rng, &temp_keypair, builder).unwrap();
+
             } else {
+                /*
                 for check in block.checks.iter_mut() {
                     check.succeeded = None;
                 }
+                */
             }
         }
 
@@ -817,14 +580,34 @@ impl Token {
             for e in v.iter() {
                 match e {
                     error::FailedCheck::Verifier(error::FailedVerifierCheck { check_id, .. }) => {
-                        self.verifier.checks[*check_id as usize].succeeded = Some(false);
+                        //self.verifier.checks[*check_id as usize].succeeded = Some(false);
+                        let position = &self.verifier.checks[*check_id as usize];
+                        info!("will update verifier marks for {}: {:?}", check_id, position);
+                        unsafe { mark(
+                          "verifier-code",
+                          position.line_start,
+                          position.column_start,
+                          position.line_end,
+                          position.column_end,
+                          "background: #c1f1c1;"
+                        )};
                     },
                     error::FailedCheck::Block(error::FailedBlockCheck { block_id, check_id, .. }) => {
-                        if *block_id == 0 {
-                            self.authority.checks[*check_id as usize].succeeded = Some(false);
+                        let block = if *block_id == 0 {
+                            &self.authority
                         } else {
-                            self.blocks[*block_id as usize - 1].checks[*check_id as usize].succeeded = Some(false);
-                        }
+                            &self.blocks[*block_id as usize - 1]
+                        };
+                        let position = &block.checks[*check_id as usize];
+                        info!("will update block[{}] marks for {}: {:?}", block_id, check_id, position);
+                        unsafe { mark(
+                          &format!("block-code-{}", block_id),
+                          position.line_start,
+                          position.column_start,
+                          position.line_end,
+                          position.column_end,
+                          "background: #c1f1c1;"
+                        )};
                     },
                 }
 
@@ -835,9 +618,13 @@ impl Token {
 
 #[derive(Clone,Debug,Default)]
 struct Verifier {
+    pub code: String,
+    /*
     pub facts: Vec<Fact>,
     pub rules: Vec<Rule>,
     pub checks: Vec<Check>,
+    */
+    pub checks: Vec<SourcePosition>,
     pub error: Option<error::Token>,
     pub output: String,
 }
@@ -848,25 +635,35 @@ impl Verifier {
 
         let mut verifier = token.verify(root).unwrap();
 
-        for fact in self.facts.iter_mut() {
-            if fact.enabled {
-                fact.parsed = verifier.add_fact(fact.data.as_str()).is_ok();
-            }
+        info!("verifier source:\n{}", self.code);
+
+        let res = parse_source(&self.code);
+        if let Err(e) = res {
+            self.error = Some(error::Token::ParseError);
+            self.output = e.to_string();
+            return;
         }
 
-        for rule in self.rules.iter_mut() {
-            if rule.enabled {
-                rule.parsed = verifier.add_rule(rule.data.as_str()).is_ok();
-            }
+        self.checks.clear();
+
+        let (_, parsed) = parse_source(&self.code).unwrap();
+
+        for (_,fact) in parsed.facts.iter() {
+            verifier.add_fact(fact.clone()).unwrap();
         }
 
-        for check in self.checks.iter_mut() {
-            if check.enabled {
-                check.parsed = verifier.add_check(check.data.as_str()).is_ok();
-                check.succeeded = Some(true);
-            } else {
-                check.succeeded = None;
-            }
+        for (_,rule) in parsed.rules.iter() {
+            verifier.add_rule(rule.clone()).unwrap();
+        }
+
+        for (i,check) in parsed.checks.iter() {
+            verifier.add_check(check.clone()).unwrap();
+            let position = get_position(&self.code, i);
+            self.checks.push(position);
+        }
+
+        for (_,policy) in parsed.policies.iter() {
+            verifier.add_policy(policy.clone()).unwrap();
         }
 
         if let Err(e) = verifier.verify() {
@@ -875,4 +672,30 @@ impl Verifier {
 
         self.output = verifier.print_world();
     }
+}
+
+#[wasm_bindgen(inline_js = "export function clear_marks() {
+    for(var i=0; i < window.marks.length; i=i+1) {
+        console.log(\"clearing mark \"+i);
+        window.marks[i].clear();
+    }
+    window.marks = [];
+}")]
+extern "C" {
+    fn clear_marks();
+}
+
+#[wasm_bindgen(inline_js = "export function mark(id, line_start, column_start, line_end, column_end, style) {
+    console.log(\"adding mark in \"+id);
+
+    var mark = window.editors[id].markText(
+      {line: line_start, ch: column_start},
+      {line: line_end, ch: column_end},
+      {css: style}
+    );
+    window.marks.push(mark);
+    console.log(window.marks);
+}")]
+extern "C" {
+    fn mark(id:&str, line_start: usize, column_start: usize, line_end: usize, column_end: usize, css: &str);
 }

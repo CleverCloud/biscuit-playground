@@ -2,6 +2,11 @@
 <html lang="en">
     <head>
         <link rel="stylesheet" type="text/css" href="style.css" />
+        <link rel="stylesheet" href="/codemirror/lib/codemirror.css">
+        <link rel="stylesheet" href="/codemirror/addon/lint/lint.css">
+        <script type="text/javascript" src="/codemirror/lib/codemirror.js"></script>
+        <script type="text/javascript" src="/codemirror/addon/mode/simple.js"></script>
+        <script type="text/javascript" src="/editor.js"></script>
         <meta charset="utf-8">
         <title>Biscuit tokens playground by Clever Cloud</title>
         <script type="module">
@@ -9,5 +14,65 @@
             init()
         </script>
     </head>
-    <body></body>
+    <body>
+      <script>
+        window.editors = {};
+        window.marks = [];
+
+        function setup_codemirror() {
+          var current_editors = Object.keys(window.editors);
+          var new_editors = [];
+
+          var elements = document.getElementsByClassName('code');
+          for (var i=0, len=elements.length|0; i<len; i=i+1|0) {
+              var editor = elements[i];
+              new_editors.push(editor.id);
+
+              let buffer_editor = document.getElementById(editor.id+"-buffer");
+              editor.value = buffer_editor.value;
+
+            if(!current_editors.includes(editor.id)) {
+              let cm = new CodeMirror.fromTextArea(document.getElementById(editor.id), {
+                mode: 'biscuit',
+                autoCloseTags: true,
+                lineNumbers: true
+              });
+
+              let id = editor.id;
+
+              function updateTextArea() {
+                console.log("trying to save");
+                // somehow save() does not work
+                //cm.save();
+                var text = cm.getValue();
+
+                let editor = document.getElementById(id+"-buffer");
+                editor.innerText = text;
+
+                const event = new Event('input');
+                editor.dispatchEvent(event);
+              }
+              cm.on('change', updateTextArea);
+
+              //cm.addLineClass(3, "text", "caveat_success");
+              //var mark = cm.markText({line: 2, ch:2}, {line:3, ch:5}, { css: "background: #c1f1c1;" });
+              window.editors[editor.id] = cm;
+              //window.marks.push(mark);
+            }
+            //result += "\n  " + allOrangeJuiceByClass[i].textContent;
+          }
+
+          for(var i=0; i < current_editors.length; i=i+1) {
+            if(!new_editors.includes(current_editors[i])) {
+              delete window.editors[current_editors[i]];
+            }
+          }
+
+          //console.log(window.editors);
+        }
+
+        setup_codemirror();
+        setInterval(setup_codemirror, 2000);
+      </script>
+    </body>
 </html>
