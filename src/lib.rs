@@ -46,6 +46,9 @@ pub fn testBiscuit() {
 
     unsafe { clear_marks() };
 
+    set_token_content(String::new());
+    set_verifier_result(String::new(), String::new());
+
     let mut rng: StdRng = SeedableRng::seed_from_u64(0);
     let root = KeyPair::new_with_rng(&mut rng);
 
