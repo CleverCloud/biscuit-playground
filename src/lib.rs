@@ -17,7 +17,7 @@ struct Model {
 enum Kind {
     Fact,
     Rule,
-    Caveat,
+    Check,
 }
 
 enum Msg {
@@ -71,7 +71,7 @@ impl Component for Model {
                 match kind {
                     Kind::Fact => block.facts.push(Fact::default()),
                     Kind::Rule => block.rules.push(Rule::default()),
-                    Kind::Caveat => block.caveats.push(Caveat::default()),
+                    Kind::Check => block.checks.push(Check::default()),
                 }
             },
             Msg::DeleteElement { kind, block_index, element_index, } => {
@@ -88,8 +88,8 @@ impl Component for Model {
                     Kind::Rule => {
                         block.rules.remove(element_index);
                     },
-                    Kind::Caveat => {
-                        block.caveats.remove(element_index);
+                    Kind::Check => {
+                        block.checks.remove(element_index);
                     },
                 }
             },
@@ -103,7 +103,7 @@ impl Component for Model {
                 match kind {
                     Kind::Fact => block.facts[element_index].enabled = enabled,
                     Kind::Rule => block.rules[element_index].enabled = enabled,
-                    Kind::Caveat => block.caveats[element_index].enabled = enabled,
+                    Kind::Check => block.checks[element_index].enabled = enabled,
                 }
             },
             Msg::Update { kind, block_index, element_index, value, } => {
@@ -116,14 +116,14 @@ impl Component for Model {
                 match kind {
                     Kind::Fact => block.facts[element_index].data = value,
                     Kind::Rule => block.rules[element_index].data = value,
-                    Kind::Caveat => block.caveats[element_index].data = value,
+                    Kind::Check => block.checks[element_index].data = value,
                 }
             },
             Msg::AddVerifierElement { kind } => {
                 match kind {
                     Kind::Fact => self.token.verifier.facts.push(Fact::default()),
                     Kind::Rule => self.token.verifier.rules.push(Rule::default()),
-                    Kind::Caveat => self.token.verifier.caveats.push(Caveat::default()),
+                    Kind::Check => self.token.verifier.checks.push(Check::default()),
                 }
             },
             Msg::DeleteVerifierElement { kind, element_index, } => {
@@ -134,8 +134,8 @@ impl Component for Model {
                     Kind::Rule => {
                         self.token.verifier.rules.remove(element_index);
                     },
-                    Kind::Caveat => {
-                        self.token.verifier.caveats.remove(element_index);
+                    Kind::Check => {
+                        self.token.verifier.checks.remove(element_index);
                     },
                 }
             },
@@ -144,14 +144,14 @@ impl Component for Model {
                 match kind {
                     Kind::Fact => self.token.verifier.facts[element_index].enabled = enabled,
                     Kind::Rule => self.token.verifier.rules[element_index].enabled = enabled,
-                    Kind::Caveat => self.token.verifier.caveats[element_index].enabled = enabled,
+                    Kind::Check => self.token.verifier.checks[element_index].enabled = enabled,
                 }
             },
             Msg::VerifierUpdate { kind, element_index, value, } => {
                 match kind {
                     Kind::Fact => self.token.verifier.facts[element_index].data = value,
                     Kind::Rule => self.token.verifier.rules[element_index].data = value,
-                    Kind::Caveat => self.token.verifier.caveats[element_index].data = value,
+                    Kind::Check => self.token.verifier.checks[element_index].data = value,
                 }
             },
             Msg::None => {},
@@ -183,7 +183,7 @@ impl Component for Model {
                 <div id="biscuit-wrapper">
                     <div id="explain">
                         <p>{"This is a live demo of the "}
-                          <a href="https://github.com/CleverCloud/biscuit">{"Biscuit authentication and authorization tokens"}</a>{", where you can test different authorization policies. Each token is made of blocks, each block represents one attenuation level: you can restrict the rights of a token by adding a new block. Authorization policies are written in Datalog, where facts represent data, rules generate more facts from existing facts, and caveats check the presence of some facts. To pass the verification phase, all of the caveats must succeed."}
+                          <a href="https://github.com/CleverCloud/biscuit">{"Biscuit authentication and authorization tokens"}</a>{", where you can test different authorization policies. Each token is made of blocks, each block represents one attenuation level: you can restrict the rights of a token by adding a new block. Authorization policies are written in Datalog, where facts represent data, rules generate more facts from existing facts, and checks validate the presence of some facts. To pass the verification phase, all of the checks must succeed."}
                         </p>
                         <p>{"Test the behaviour of the example token by activating or deactivating blocks or their data, changing conditions (like "}<em>{"#read"}</em>{" operation to "}<em>{"#write"}</em>{" and see how the verifier will react"}</p>
                     </div>
@@ -277,13 +277,13 @@ impl Model {
 
                 <span>
                 <button onclick=self.link.callback(move |_| {
-                    Msg::AddElement { kind: Kind::Caveat, block_index }
+                    Msg::AddElement { kind: Kind::Check, block_index }
                 })>{ "+" }</button>
-                { "Caveats" }
+                { "Checks" }
                 </span>
                 <ul>
-                    { for block.caveats.iter().enumerate()
-                        .map(|(caveat_index, caveat)| self.view_caveat(block_index, caveat_index, caveat))
+                    { for block.checks.iter().enumerate()
+                        .map(|(check_index, check)| self.view_check(block_index, check_index, check))
                     }
                 </ul>
                 </div>
@@ -349,31 +349,31 @@ impl Model {
         }
     }
 
-    fn view_caveat(&self, block_index: usize, element_index: usize, caveat: &Caveat) -> Html {
-        let is_enabled = caveat.enabled;
+    fn view_check(&self, block_index: usize, element_index: usize, check: &Check) -> Html {
+        let is_enabled = check.enabled;
 
         html! {
             <li
-                class= { caveat.class() }
+                class= { check.class() }
             >
                 <button onclick=self.link.callback(move |_| {
-                    Msg::DeleteElement { kind: Kind::Caveat, block_index, element_index }
+                    Msg::DeleteElement { kind: Kind::Check, block_index, element_index }
                 })>{ "-" }</button>
                 <input type="checkbox"
                     onclick = self.link.callback(move |_| {
-                        Msg::SetEnabled {kind: Kind::Caveat, enabled: !is_enabled, block_index, element_index }
+                        Msg::SetEnabled {kind: Kind::Check, enabled: !is_enabled, block_index, element_index }
                     })
                     checked = { is_enabled }
                 />
                 <input
                     type="text"
                     size="45"
-                    class= { caveat.class() }
-                    value = { caveat.data.clone() }
-                    disabled = if !caveat.enabled { true } else { false }
+                    class= { check.class() }
+                    value = { check.data.clone() }
+                    disabled = if !check.enabled { true } else { false }
 
                     oninput=self.link.callback(move |e: InputData| {
-                        Msg::Update { kind: Kind::Caveat, block_index, element_index, value: e.value }
+                        Msg::Update { kind: Kind::Check, block_index, element_index, value: e.value }
                     })
                     />
            </li>
@@ -414,14 +414,14 @@ impl Model {
 
                     <span>
                         <button onclick=self.link.callback(move |_| {
-                            Msg::AddVerifierElement { kind: Kind::Caveat }
+                            Msg::AddVerifierElement { kind: Kind::Check }
                         })>{ "+" }</button>
-                        { "Caveats" }
+                        { "Checks" }
                     </span>
 
                     <ul>
-                        { for verifier.caveats.iter().enumerate()
-                            .map(|(caveat_index, caveat)| self.view_verifier_caveat(caveat_index, caveat))
+                        { for verifier.checks.iter().enumerate()
+                            .map(|(check_index, check)| self.view_verifier_check(check_index, check))
                         }
                     </ul>
                 </div>
@@ -498,31 +498,31 @@ impl Model {
         }
     }
 
-    fn view_verifier_caveat(&self, element_index: usize, caveat: &Caveat) -> Html {
-        let is_enabled = caveat.enabled;
+    fn view_verifier_check(&self, element_index: usize, check: &Check) -> Html {
+        let is_enabled = check.enabled;
 
         html! {
             <li
-                class= { caveat.class() }
+                class= { check.class() }
             >
                 <button onclick=self.link.callback(move |_| {
-                    Msg::DeleteVerifierElement { kind: Kind::Caveat, element_index }
+                    Msg::DeleteVerifierElement { kind: Kind::Check, element_index }
                 })>{ "-" }</button>
                 <input type="checkbox"
                     onclick = self.link.callback(move |_| {
-                        Msg::SetVerifierEnabled {kind: Kind::Caveat, enabled: !is_enabled, element_index }
+                        Msg::SetVerifierEnabled {kind: Kind::Check, enabled: !is_enabled, element_index }
                     })
                     checked = { is_enabled }
                 />
                 <input
                     type="text"
                     size="45"
-                    class= { caveat.class() }
-                    value = { caveat.data.clone() }
-                    disabled = if !caveat.enabled { true } else { false }
+                    class= { check.class() }
+                    value = { check.data.clone() }
+                    disabled = if !check.enabled { true } else { false }
 
                     oninput=self.link.callback(move |e: InputData| {
-                        Msg::VerifierUpdate { kind: Kind::Caveat, element_index, value: e.value }
+                        Msg::VerifierUpdate { kind: Kind::Check, element_index, value: e.value }
                     })
                     />
            </li>
@@ -594,16 +594,16 @@ impl Rule {
 }
 
 #[derive(Clone,Debug)]
-struct Caveat {
+struct Check {
     pub data: String,
     pub parsed: bool,
     pub enabled: bool,
     pub succeeded: Option<bool>,
 }
 
-impl Default for Caveat {
+impl Default for Check {
     fn default() -> Self {
-        Caveat {
+        Check {
             data: String::new(),
             parsed: true,
             enabled: true,
@@ -612,9 +612,9 @@ impl Default for Caveat {
     }
 }
 
-impl Caveat {
+impl Check {
     pub fn new(s: &str) -> Self {
-        Caveat {
+        Check {
             data: s.to_string(),
             parsed: true,
             enabled: true,
@@ -628,8 +628,8 @@ impl Caveat {
         } else {
             match self.succeeded {
                 None => "",
-                Some(true) => "caveat_success",
-                Some(false) => "caveat_failure",
+                Some(true) => "check_success",
+                Some(false) => "check_failure",
             }
         }
     }
@@ -639,7 +639,7 @@ impl Caveat {
 struct Block {
     pub facts: Vec<Fact>,
     pub rules: Vec<Rule>,
-    pub caveats: Vec<Caveat>,
+    pub checks: Vec<Check>,
     pub enabled: bool,
 }
 
@@ -648,7 +648,7 @@ impl Default for Block {
         Block {
             facts: Vec::new(),
             rules: Vec::new(),
-            caveats: Vec::new(),
+            checks: Vec::new(),
             enabled: true,
         }
     }
@@ -673,13 +673,13 @@ impl Token {
         token.authority.facts.push(Fact::new("right(#authority, \"/folder1/file1\", #write)"));
         token.authority.facts.push(Fact::new("right(#authority, \"/folder2/file1\", #read)"));
 
-        token.blocks[0].caveats.push(Caveat::new("*check(#read) <- operation(#ambient, #read)"));
-        token.blocks[1].caveats.push(Caveat::new("*check($file) <- resource(#ambient, $file) @ $file matches /folder1/*"));
+        token.blocks[0].checks.push(Check::new("*check(#read) <- operation(#ambient, #read)"));
+        token.blocks[1].checks.push(Check::new("*check($file) <- resource(#ambient, $file) @ $file matches /folder1/*"));
 
         // simulate verification for PUT /blog1/article1
         token.verifier.facts.push(Fact::new("resource(#ambient, \"/folder1/file1\")"));
         token.verifier.facts.push(Fact::new("operation(#ambient, #read)"));
-        token.verifier.caveats.push(Caveat::new("*check($file) <- resource(#ambient, $file), operation(#ambient, $op), right(#authority, $file, $op)"));
+        token.verifier.checks.push(Check::new("*check($file) <- resource(#ambient, $file), operation(#ambient, $op), right(#authority, $file, $op)"));
 
         token
     }
@@ -735,8 +735,8 @@ impl Token {
              @ $operation in [#read, #write])",
              ));
 
-        // add the rights verification caveat
-        token.verifier.caveats.push(Caveat::new(
+        // add the rights verification check
+        token.verifier.checks.push(Check::new(
             "*verified($blog_id, $article_id, $operation) <-
              blog(#ambient, $blog_id),
              article(#ambient, $blog_id, $article_id),
@@ -750,7 +750,7 @@ impl Token {
     fn generate(&mut self) {
         info!("generate token: {:?}", self);
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let root = KeyPair::new(&mut rng);
+        let root = KeyPair::new_with_rng(&mut rng);
 
         let mut builder = Biscuit::builder(&root);
 
@@ -766,17 +766,17 @@ impl Token {
             }
         }
 
-        for caveat in self.authority.caveats.iter_mut() {
-            if caveat.enabled {
-                caveat.parsed = builder.add_authority_caveat(caveat.data.as_str()).is_ok();
+        for check in self.authority.checks.iter_mut() {
+            if check.enabled {
+                check.parsed = builder.add_authority_check(check.data.as_str()).is_ok();
             }
         }
 
-        let mut token = builder.build(&mut rng).unwrap();
+        let mut token = builder.build_with_rng(&mut rng).unwrap();
 
         for block in self.blocks.iter_mut() {
             if block.enabled {
-                let temp_keypair = KeyPair::new(&mut rng);
+                let temp_keypair = KeyPair::new_with_rng(&mut rng);
                 let mut builder = token.create_block();
 
                 for fact in block.facts.iter_mut() {
@@ -791,19 +791,19 @@ impl Token {
                     }
                 }
 
-                for caveat in block.caveats.iter_mut() {
-                    if caveat.enabled {
-                        caveat.parsed = builder.add_caveat(caveat.data.as_str()).is_ok();
-                        caveat.succeeded = Some(true);
+                for check in block.checks.iter_mut() {
+                    if check.enabled {
+                        check.parsed = builder.add_check(check.data.as_str()).is_ok();
+                        check.succeeded = Some(true);
                     } else {
-                        caveat.succeeded = None;
+                        check.succeeded = None;
                     }
                 }
 
-                token = token.append(&mut rng, &temp_keypair, builder).unwrap();
+                token = token.append_with_rng(&mut rng, &temp_keypair, builder).unwrap();
             } else {
-                for caveat in block.caveats.iter_mut() {
-                    caveat.succeeded = None;
+                for check in block.checks.iter_mut() {
+                    check.succeeded = None;
                 }
             }
         }
@@ -813,17 +813,17 @@ impl Token {
         self.serialized = Some(base64::encode_config(&v[..], base64::URL_SAFE));
         self.biscuit = Some(token);
 
-        if let Some(error::Token::FailedLogic(error::Logic::FailedCaveats(v))) = self.verifier.error.as_ref() {
+        if let Some(error::Token::FailedLogic(error::Logic::FailedChecks(v))) = self.verifier.error.as_ref() {
             for e in v.iter() {
                 match e {
-                    error::FailedCaveat::Verifier(error::FailedVerifierCaveat { caveat_id, .. }) => {
-                        self.verifier.caveats[*caveat_id as usize].succeeded = Some(false);
+                    error::FailedCheck::Verifier(error::FailedVerifierCheck { check_id, .. }) => {
+                        self.verifier.checks[*check_id as usize].succeeded = Some(false);
                     },
-                    error::FailedCaveat::Block(error::FailedBlockCaveat { block_id, caveat_id, .. }) => {
+                    error::FailedCheck::Block(error::FailedBlockCheck { block_id, check_id, .. }) => {
                         if *block_id == 0 {
-                            self.authority.caveats[*caveat_id as usize].succeeded = Some(false);
+                            self.authority.checks[*check_id as usize].succeeded = Some(false);
                         } else {
-                            self.blocks[*block_id as usize - 1].caveats[*caveat_id as usize].succeeded = Some(false);
+                            self.blocks[*block_id as usize - 1].checks[*check_id as usize].succeeded = Some(false);
                         }
                     },
                 }
@@ -837,7 +837,7 @@ impl Token {
 struct Verifier {
     pub facts: Vec<Fact>,
     pub rules: Vec<Rule>,
-    pub caveats: Vec<Caveat>,
+    pub checks: Vec<Check>,
     pub error: Option<error::Token>,
     pub output: String,
 }
@@ -860,12 +860,12 @@ impl Verifier {
             }
         }
 
-        for caveat in self.caveats.iter_mut() {
-            if caveat.enabled {
-                caveat.parsed = verifier.add_caveat(caveat.data.as_str()).is_ok();
-                caveat.succeeded = Some(true);
+        for check in self.checks.iter_mut() {
+            if check.enabled {
+                check.parsed = verifier.add_check(check.data.as_str()).is_ok();
+                check.succeeded = Some(true);
             } else {
-                caveat.succeeded = None;
+                check.succeeded = None;
             }
         }
 
