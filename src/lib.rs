@@ -1,6 +1,8 @@
 #![recursion_limit="512"]
 use wasm_bindgen::prelude::*;
-use yew::prelude::*;
+use wasm_bindgen::JsCast;
+use web_sys::HtmlTextAreaElement;
+//use yew::prelude::*;
 use biscuit_auth::{token::Biscuit, crypto::{KeyPair, PublicKey}, error,
   parser::{parse_source, SourceResult},
 };
@@ -11,6 +13,337 @@ use nom::Offset;
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+
+#[wasm_bindgen]
+extern "C" {
+    // Use `js_namespace` here to bind `console.log(..)` instead of just
+    // `log(..)`
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+}
+
+#[wasm_bindgen]
+pub fn testBiscuit() {
+    unsafe{log("testBiscuit");}
+    let window = web_sys::window().expect("no global `window` exists");
+    let document = window.document().expect("should have a document on window");
+    let collection = document.get_elements_by_class_name("code");
+
+    let mut block_codes = Vec::new();
+    for i in 0..collection.length()-1 {
+        let element = collection.item(i).unwrap();
+        let textarea = element.dyn_ref::<HtmlTextAreaElement>().unwrap();
+        unsafe{log(&format!("got content: {}", textarea.value()));}
+        block_codes.push(textarea.value());
+    }
+    let element = collection.item(collection.length()-1).unwrap();
+    let textarea = element.dyn_ref::<HtmlTextAreaElement>().unwrap();
+    unsafe{log(&format!("got content: {}", textarea.value()));}
+
+    let verifier_code = textarea.value();
+
+    info!("will generate token");
+
+    unsafe { clear_marks() };
+
+    let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+    let root = KeyPair::new_with_rng(&mut rng);
+
+    let mut builder = Biscuit::builder(&root);
+
+    let mut authority = Block::default();
+    let mut blocks = Vec::new();
+
+    if let Ok((_, authority_parsed)) = parse_source(&block_codes[0]) {
+        for (_,fact) in authority_parsed.facts.iter() {
+            builder.add_authority_fact(fact.clone()).unwrap();
+        }
+
+        for (_,rule) in authority_parsed.rules.iter() {
+            builder.add_authority_rule(rule.clone()).unwrap();
+        }
+
+        for (i,check) in authority_parsed.checks.iter() {
+            builder.add_authority_check(check.clone()).unwrap();
+            let position = get_position(&block_codes[0], i);
+            authority.checks.push(position);
+        }
+    }
+
+    let mut token = builder.build_with_rng(&mut rng).unwrap();
+
+    for code in (&block_codes[1..]).iter() {
+        let mut block = Block::default();
+
+        let temp_keypair = KeyPair::new_with_rng(&mut rng);
+        let mut builder = token.create_block();
+
+        if let Ok((_, block_parsed)) = parse_source(&code) {
+            for (_,fact) in block_parsed.facts.iter() {
+                builder.add_fact(fact.clone()).unwrap();
+            }
+
+            for (_,rule) in block_parsed.rules.iter() {
+                builder.add_rule(rule.clone()).unwrap();
+            }
+
+            for (i,check) in block_parsed.checks.iter() {
+                builder.add_check(check.clone()).unwrap();
+                let position = get_position(&code, i);
+                block.checks.push(position);
+            }
+        }
+
+        token = token.append_with_rng(&mut rng, &temp_keypair, builder).unwrap();
+
+        blocks.push(block);
+    }
+
+    let mut verifier = token.verify(root.public()).unwrap();
+
+    info!("verifier source:\n{}", &verifier_code);
+
+    let mut error = None;
+    let output;
+
+    let res = parse_source(&verifier_code);
+    if let Err(e) = res {
+        error = Some(error::Token::ParseError);
+        output = e.to_string();
+    } else {
+        let mut verifier_checks = Vec::new();
+
+        let (_, parsed) = res.unwrap();
+
+        for (_,fact) in parsed.facts.iter() {
+            verifier.add_fact(fact.clone()).unwrap();
+        }
+
+        for (_,rule) in parsed.rules.iter() {
+            verifier.add_rule(rule.clone()).unwrap();
+        }
+
+        for (i,check) in parsed.checks.iter() {
+            verifier.add_check(check.clone()).unwrap();
+            let position = get_position(&verifier_code, i);
+            verifier_checks.push(position);
+        }
+
+        for (_,policy) in parsed.policies.iter() {
+            verifier.add_policy(policy.clone()).unwrap();
+        }
+
+        if let Err(e) = verifier.verify() {
+            error = Some(e);
+        }
+
+        output = verifier.print_world();
+
+        let v = token.to_vec().unwrap();
+        //self.serialized = Some(base64::encode_config(&v[..], base64::URL_SAFE));
+        //self.biscuit = Some(token);
+        set_token_content(token.print());
+
+        if let Some(error::Token::FailedLogic(error::Logic::FailedChecks(v))) = error.as_ref() {
+            for e in v.iter() {
+                match e {
+                    error::FailedCheck::Verifier(error::FailedVerifierCheck { check_id, .. }) => {
+                        //self.verifier.checks[*check_id as usize].succeeded = Some(false);
+                        let position = &verifier_checks[*check_id as usize];
+                        info!("will update verifier marks for {}: {:?}", check_id, position);
+                        unsafe { mark(
+                          "verifier-code",
+                          position.line_start,
+                          position.column_start,
+                          position.line_end,
+                          position.column_end,
+                          "background: #c1f1c1;"
+                        )};
+                    },
+                    error::FailedCheck::Block(error::FailedBlockCheck { block_id, check_id, .. }) => {
+                        let block = if *block_id == 0 {
+                            &authority
+                        } else {
+                            &blocks[*block_id as usize - 1]
+                        };
+                        let position = &block.checks[*check_id as usize];
+                        info!("will update block[{}] marks for {}: {:?}", block_id, check_id, position);
+                        unsafe { mark(
+                          &format!("block-code-{}", block_id),
+                          position.line_start,
+                          position.column_start,
+                          position.line_end,
+                          position.column_end,
+                          "background: #c1f1c1;"
+                        )};
+                    },
+                }
+
+            }
+        }
+    }
+
+    set_verifier_result(
+        match &error {
+            Some(e) => format!("Error: {:?}", e),
+            None => "Success".to_string(),
+        },
+        output
+    );
+    /*
+        //info!("generate token: {:?}", self);
+        info!("will generate token");
+
+        unsafe { clear_marks() };
+
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let root = KeyPair::new_with_rng(&mut rng);
+
+        let mut builder = Biscuit::builder(&root);
+
+        self.authority.checks.clear();
+        if let Ok((_, authority_parsed)) = parse_source(&self.authority.code) {
+            for (_,fact) in authority_parsed.facts.iter() {
+                builder.add_authority_fact(fact.clone()).unwrap();
+            }
+
+            for (_,rule) in authority_parsed.rules.iter() {
+                builder.add_authority_rule(rule.clone()).unwrap();
+            }
+
+            for (i,check) in authority_parsed.checks.iter() {
+                builder.add_authority_check(check.clone()).unwrap();
+                let position = get_position(&self.authority.code, i);
+                self.authority.checks.push(position);
+            }
+        }
+
+        let mut token = builder.build_with_rng(&mut rng).unwrap();
+
+        for block in self.blocks.iter_mut() {
+
+            block.checks.clear();
+
+            if block.enabled {
+                let temp_keypair = KeyPair::new_with_rng(&mut rng);
+                let mut builder = token.create_block();
+
+                if let Ok((_, block_parsed)) = parse_source(&block.code) {
+                    for (_,fact) in block_parsed.facts.iter() {
+                        builder.add_fact(fact.clone()).unwrap();
+                    }
+
+                    for (_,rule) in block_parsed.rules.iter() {
+                        builder.add_rule(rule.clone()).unwrap();
+                    }
+
+                    for (i,check) in block_parsed.checks.iter() {
+                        builder.add_check(check.clone()).unwrap();
+                        let position = get_position(&block.code, i);
+                        block.checks.push(position);
+                    }
+                }
+
+                token = token.append_with_rng(&mut rng, &temp_keypair, builder).unwrap();
+
+            } else {
+                /*
+                for check in block.checks.iter_mut() {
+                    check.succeeded = None;
+                }
+                */
+            }
+        }
+
+
+        self.verifier.verify(&token, root.public());
+        let v = token.to_vec().unwrap();
+        self.serialized = Some(base64::encode_config(&v[..], base64::URL_SAFE));
+        self.biscuit = Some(token);
+
+        if let Some(error::Token::FailedLogic(error::Logic::FailedChecks(v))) = self.verifier.error.as_ref() {
+            for e in v.iter() {
+                match e {
+                    error::FailedCheck::Verifier(error::FailedVerifierCheck { check_id, .. }) => {
+                        //self.verifier.checks[*check_id as usize].succeeded = Some(false);
+                        let position = &self.verifier.checks[*check_id as usize];
+                        info!("will update verifier marks for {}: {:?}", check_id, position);
+                        unsafe { mark(
+                          "verifier-code",
+                          position.line_start,
+                          position.column_start,
+                          position.line_end,
+                          position.column_end,
+                          "background: #c1f1c1;"
+                        )};
+                    },
+                    error::FailedCheck::Block(error::FailedBlockCheck { block_id, check_id, .. }) => {
+                        let block = if *block_id == 0 {
+                            &self.authority
+                        } else {
+                            &self.blocks[*block_id as usize - 1]
+                        };
+                        let position = &block.checks[*check_id as usize];
+                        info!("will update block[{}] marks for {}: {:?}", block_id, check_id, position);
+                        unsafe { mark(
+                          &format!("block-code-{}", block_id),
+                          position.line_start,
+                          position.column_start,
+                          position.line_end,
+                          position.column_end,
+                          "background: #c1f1c1;"
+                        )};
+                    },
+                }
+
+            }
+        }
+    }
+
+    pub fn verify(&mut self, token: &Biscuit, root: PublicKey) {
+        self.error = None;
+
+        let mut verifier = token.verify(root).unwrap();
+
+        info!("verifier source:\n{}", self.code);
+
+        let res = parse_source(&self.code);
+        if let Err(e) = res {
+            self.error = Some(error::Token::ParseError);
+            self.output = e.to_string();
+            return;
+        }
+
+        self.checks.clear();
+
+        let (_, parsed) = parse_source(&self.code).unwrap();
+
+        for (_,fact) in parsed.facts.iter() {
+            verifier.add_fact(fact.clone()).unwrap();
+        }
+
+        for (_,rule) in parsed.rules.iter() {
+            verifier.add_rule(rule.clone()).unwrap();
+        }
+
+        for (i,check) in parsed.checks.iter() {
+            verifier.add_check(check.clone()).unwrap();
+            let position = get_position(&self.code, i);
+            self.checks.push(position);
+        }
+
+        for (_,policy) in parsed.policies.iter() {
+            verifier.add_policy(policy.clone()).unwrap();
+        }
+
+        if let Err(e) = verifier.verify() {
+            self.error = Some(e);
+        }
+
+        self.output = verifier.print_world();
+    }
+    */
+}
 
 /*
 struct Model {
@@ -218,8 +551,9 @@ pub fn run_app() {
     wasm_logger::init(wasm_logger::Config::default());
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
+    unsafe{log("hello")}
 
-    App::<Model>::new().mount_to_body();
+    //App::<Model>::new().mount_to_body();
 }
 
 #[derive(Clone,Debug)]
@@ -699,4 +1033,22 @@ extern "C" {
 }")]
 extern "C" {
     fn mark(id:&str, line_start: usize, column_start: usize, line_end: usize, column_end: usize, css: &str);
+}
+
+#[wasm_bindgen(inline_js = "export function set_verifier_result(error, world) {
+    var element = document.getElementById(\"verifier-result\");
+    element.innerText = error;
+    var element = document.getElementById(\"verifier-world\");
+    element.innerText = world;
+}")]
+extern "C" {
+    fn set_verifier_result(error:String, world:String);
+}
+
+#[wasm_bindgen(inline_js = "export function set_token_content(content) {
+    var element = document.getElementById(\"token-content\");
+    element.innerText = content;
+}")]
+extern "C" {
+    fn set_token_content(content:String);
 }

@@ -10,8 +10,9 @@
         <meta charset="utf-8">
         <title>Biscuit tokens playground by Clever Cloud</title>
         <script type="module">
-            /*import init from "./wasm.js"
-            init()*/
+          /*import init from "./wasm.js"
+            init()
+            */
         </script>
     </head>
     <body>
@@ -37,153 +38,44 @@
             </div>
 
             <div id="token" class="container">
-                <h3>{"Token"}</h3>
+                <h3>Token</h3>
                 <ul id="block-list">
-                  <li class={ if is_enabled { "sub-container" } else { "sub-container block-disabled" } }>
-                    <div class="block">
-                        <div>
-    
-                            <span>
-                                <button onclick=self.link.callback(move |_| {
-                                    Msg::DeleteBlock { block_index }
-                                })
-                                    hidden = { block_index == 0 }
-                                >{ "-" }</button>
-                                <input type="checkbox"
-                                    onclick = self.link.callback(move |_| {
-                                        Msg::SetBlockEnabled {enabled: !is_enabled, block_index }
-                                    })
-                                    checked = { is_enabled }
-                                    hidden = { block_index == 0 }
-                                />
-                                <h4 style="display:inline">{ if block_index == 0 {
-                                    "Authority block".to_string()
-                                } else {
-                                    format!("Block {}", block_index)
-                                }
-                                }</h4>
-                            </span>
-                            <br />
-                        </div>
-    
-                        <textarea
-                            class="code-buffer"
-                            style="display: none"
-                            id={ format!("block-code-{}-buffer", block_index) }
-                            oninput=self.link.callback(move |e: InputData| {
-                                Msg::UpdateBlockCode { block_index, value: e.value }
-                            })
-                        >{ &block.code }</textarea>
-                        <textarea
-                            class="code"
-                            id={ format!("block-code-{}", block_index) }
-                        ></textarea>
-                    </div>
-                </li>
-                    
-                    <li><button onclick="">Add Block</button></li>
+                    <li><button onclick="add_block()">Add Block</button></li>
                 </ul>
                 <div class="sub-container">
-                    <em>{"Token content "}</em>
-                    <input
+                    <em>Token content</em>
+                    <!--<input
                         type="text"
                         size="45"
                         value ="self.token.serialized.as_deref().unwrap_or"
-                    />
+                        />-->
                     <pre id="token-content">
-                      self.token.biscuit.as_ref().map(|b| b.print()).unwrap_or_else(String::new)
                     </pre>
                 </div>
             </div>
             <div id="verifier" class="container">
-              <h3>{"Verifier"}</h3>
+              <h3>Verifier</h3>
 
               <div class="sub-container">
                   <textarea
-                      class="code-buffer"
-                      id = "verifier-code-buffer"
-                      style="display: none"
-                      oninput=self.link.callback(move |e: InputData| {
-                          Msg::UpdateVerifierCode { value: e.value }
-                      })
-                  >{ &verifier.code }</textarea>
-                  <textarea
                       class="code"
-                      id = "verifier-code"
+                      id="verifier-code"
+                      oninput="contentUpdate()"
                   ></textarea>
               </div>
 
               <div class="sub-container">
-                  <h4>{"Verifier result"}</h4>
-                  <p id="verifier-result">{ match &verifier.error {
-                      Some(e) => format!("Error: {:?}", e),
-                      None => "Success".to_string(),
-                  } }</p>
+                  <h4>Verifier result</h4>
+                  <p id="verifier-result">
+                  </p>
 
-                  <pre id="verifier-world">{ &verifier.output }</pre>
+                  <pre id="verifier-world"></pre>
               </div>
 
           </div>
         </div>
     </div>  
-      <script>
-        window.editors = {};
-        window.marks = [];
+    <script type="module" src="/demo.js"></script>
 
-        function setup_codemirror() {
-          var current_editors = Object.keys(window.editors);
-          var new_editors = [];
-
-          var elements = document.getElementsByClassName('code');
-          for (var i=0, len=elements.length|0; i<len; i=i+1|0) {
-              var editor = elements[i];
-              new_editors.push(editor.id);
-
-              let buffer_editor = document.getElementById(editor.id+"-buffer");
-              editor.value = buffer_editor.value;
-
-            if(!current_editors.includes(editor.id)) {
-              let cm = new CodeMirror.fromTextArea(document.getElementById(editor.id), {
-                mode: 'biscuit',
-                autoCloseTags: true,
-                lineNumbers: true
-              });
-
-              let id = editor.id;
-
-              function updateTextArea() {
-                console.log("trying to save");
-                // somehow save() does not work
-                //cm.save();
-                var text = cm.getValue();
-
-                let editor = document.getElementById(id+"-buffer");
-                editor.innerText = text;
-
-                const event = new Event('input');
-                editor.dispatchEvent(event);
-              }
-              cm.on('change', updateTextArea);
-
-              //cm.addLineClass(3, "text", "caveat_success");
-              //var mark = cm.markText({line: 2, ch:2}, {line:3, ch:5}, { css: "background: #c1f1c1;" });
-              window.editors[editor.id] = cm;
-              //window.marks.push(mark);
-            }
-            //result += "\n  " + allOrangeJuiceByClass[i].textContent;
-          }
-
-          for(var i=0; i < current_editors.length; i=i+1) {
-            if(!new_editors.includes(current_editors[i])) {
-              delete window.editors[current_editors[i]];
-            }
-          }
-
-          //console.log(window.editors);
-        }
-
-        setup_codemirror();
-        setInterval(setup_codemirror, 2000);
-      </script>
     </body>
 </html>

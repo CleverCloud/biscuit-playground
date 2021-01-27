@@ -21,6 +21,19 @@ base64 = "0.13"
 wee_alloc = "0.4"
 nom = "6"
 
+[dependencies.web-sys]
+version = "0.3.4"
+features = [
+  'Document',
+  'Element',
+  'HtmlElement',
+  'Node',
+  'Window',
+  'HtmlCollection',
+  'HtmlTextAreaElement',
+  'HtmlParagraphElement',
+]
+
 [profile.release]
 codegen-units = 1
 opt-level = "z"
