@@ -12,6 +12,7 @@ use nom::Offset;
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
+/*
 struct Model {
     link: ComponentLink<Self>,
     token: Token,
@@ -210,7 +211,7 @@ impl Model {
             </div>
         }
     }
-}
+}*/
 
 #[wasm_bindgen(start)]
 pub fn run_app() {
