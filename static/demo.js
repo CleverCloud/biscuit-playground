@@ -12,10 +12,13 @@ function add_block() {
   element.class = "sub-container";
 
   var block_name;
+  var should_display;
   if(id == 0) {
     block_name = "Authority block";
+    should_display = "display: none";
   } else {
     block_name = "Block " + id;
+    should_display = "";
   }
 
   element.innerHTML = `
@@ -23,7 +26,7 @@ function add_block() {
           <div>
               <span>
                   <button onclick="delete_block(${id})"
-                      hidden="${ id == 0 }"
+                      style="${should_display}"
                   >-</button>
                   <h4 style="display:inline">${ block_name }</h4>
               </span>
@@ -42,6 +45,15 @@ function add_block() {
 }
 
 add_block();
+window.add_block = add_block;
+
+function delete_block(id) {
+  let block = document.getElementById("block-"+id);
+  let li = block.parentNode;
+  li.parentNode.removeChild(li);
+  window.block_count -= 1;
+}
+window.delete_block = delete_block;
 
 function contentUpdate() {
   /*var elements = document.getElementsByClassName('code');
