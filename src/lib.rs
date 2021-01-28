@@ -117,15 +117,16 @@ pub fn testBiscuit() {
 
     info!("verifier source:\n{}", &verifier_code);
 
-    let mut error = None;
+    let verifier_result;
     let output;
 
     let res = parse_source(&verifier_code);
     if let Err(e) = res {
-        error = Some(error::Token::ParseError);
+        verifier_result = Err(error::Token::ParseError);
         output = e.to_string();
     } else {
         let mut verifier_checks = Vec::new();
+        let mut verifier_policies = Vec::new();
 
         let (_, parsed) = res.unwrap();
 
@@ -144,13 +145,14 @@ pub fn testBiscuit() {
             verifier_checks.push((position, true));
         }
 
-        for (_, policy) in parsed.policies.iter() {
+        for (i, policy) in parsed.policies.iter() {
             verifier.add_policy(policy.clone()).unwrap();
+            let position = get_position(&verifier_code, i);
+            // checks are marked as success until they fail
+            verifier_policies.push(position);
         }
 
-        if let Err(e) = verifier.verify() {
-            error = Some(e);
-        }
+        verifier_result = verifier.verify();
 
         output = verifier.print_world();
 
@@ -159,29 +161,58 @@ pub fn testBiscuit() {
         //self.biscuit = Some(token);
         set_token_content(token.print());
 
-        if let Some(error::Token::FailedLogic(error::Logic::FailedChecks(v))) = error.as_ref() {
-            for e in v.iter() {
-                match e {
-                    error::FailedCheck::Verifier(error::FailedVerifierCheck {
-                        check_id, ..
-                    }) => {
+        match &verifier_result {
+            Err(error::Token::FailedLogic(error::Logic::FailedChecks(v))) => {
+                for e in v.iter() {
+                    match e {
+                        error::FailedCheck::Verifier(error::FailedVerifierCheck {
+                            check_id, ..
+                        }) => {
 
-                        verifier_checks[*check_id as usize].1 = false;
-                    }
-                    error::FailedCheck::Block(error::FailedBlockCheck {
-                        block_id,
-                        check_id,
-                        ..
-                    }) => {
-                        let block = if *block_id == 0 {
-                            &mut authority
-                        } else {
-                            &mut blocks[*block_id as usize - 1]
-                        };
-                        block.checks[*check_id as usize].1 = false;
+                            verifier_checks[*check_id as usize].1 = false;
+                        }
+                        error::FailedCheck::Block(error::FailedBlockCheck {
+                            block_id,
+                            check_id,
+                            ..
+                        }) => {
+                            let block = if *block_id == 0 {
+                                &mut authority
+                            } else {
+                                &mut blocks[*block_id as usize - 1]
+                            };
+                            block.checks[*check_id as usize].1 = false;
+                        }
                     }
                 }
-            }
+            },
+            Err(error::Token::FailedLogic(error::Logic::Deny(index))) => {
+                let position = &verifier_policies[*index];
+                unsafe {
+                    mark(
+                        "verifier-code",
+                        position.line_start,
+                        position.column_start,
+                        position.line_end,
+                        position.column_end,
+                        "background: #ffa2a2;"
+                    )
+                };
+            },
+            Ok(index) => {
+                let position = &verifier_policies[*index];
+                unsafe {
+                    mark(
+                        "verifier-code",
+                        position.line_start,
+                        position.column_start,
+                        position.line_end,
+                        position.column_end,
+                        "background: #c1f1c1;"
+                    )
+                };
+            },
+            _ => {},
         }
 
         for (position, result) in authority.checks.iter() {
@@ -239,9 +270,9 @@ pub fn testBiscuit() {
     }
 
     set_verifier_result(
-        match &error {
-            Some(e) => format!("Error: {:?}", e),
-            None => "Success".to_string(),
+        match &verifier_result {
+            Err(e) => format!("Error: {:?}", e),
+            Ok(_) => "Success".to_string(),
         },
         output,
     );
