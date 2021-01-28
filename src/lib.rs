@@ -78,7 +78,7 @@ pub fn testBiscuit() {
         for (i, check) in authority_parsed.checks.iter() {
             builder.add_authority_check(check.clone()).unwrap();
             let position = get_position(&block_codes[0], i);
-            authority.checks.push(position);
+            authority.checks.push((position, true));
         }
     }
 
@@ -102,7 +102,7 @@ pub fn testBiscuit() {
             for (i, check) in block_parsed.checks.iter() {
                 builder.add_check(check.clone()).unwrap();
                 let position = get_position(&code, i);
-                block.checks.push(position);
+                block.checks.push((position, true));
             }
         }
 
@@ -140,7 +140,8 @@ pub fn testBiscuit() {
         for (i, check) in parsed.checks.iter() {
             verifier.add_check(check.clone()).unwrap();
             let position = get_position(&verifier_code, i);
-            verifier_checks.push(position);
+            // checks are marked as success until they fail
+            verifier_checks.push((position, true));
         }
 
         for (_, policy) in parsed.policies.iter() {
@@ -164,22 +165,8 @@ pub fn testBiscuit() {
                     error::FailedCheck::Verifier(error::FailedVerifierCheck {
                         check_id, ..
                     }) => {
-                        //self.verifier.checks[*check_id as usize].succeeded = Some(false);
-                        let position = &verifier_checks[*check_id as usize];
-                        info!(
-                            "will update verifier marks for {}: {:?}",
-                            check_id, position
-                        );
-                        unsafe {
-                            mark(
-                                "verifier-code",
-                                position.line_start,
-                                position.column_start,
-                                position.line_end,
-                                position.column_end,
-                                "background: #ffa2a2;",
-                            )
-                        };
+
+                        verifier_checks[*check_id as usize].1 = false;
                     }
                     error::FailedCheck::Block(error::FailedBlockCheck {
                         block_id,
@@ -187,28 +174,67 @@ pub fn testBiscuit() {
                         ..
                     }) => {
                         let block = if *block_id == 0 {
-                            &authority
+                            &mut authority
                         } else {
-                            &blocks[*block_id as usize - 1]
+                            &mut blocks[*block_id as usize - 1]
                         };
-                        let position = &block.checks[*check_id as usize];
-                        info!(
-                            "will update block[{}] marks for {}: {:?}",
-                            block_id, check_id, position
-                        );
-                        unsafe {
-                            mark(
-                                &format!("block-code-{}", block_id),
-                                position.line_start,
-                                position.column_start,
-                                position.line_end,
-                                position.column_end,
-                                "background: #ffa2a2;",
-                            )
-                        };
+                        block.checks[*check_id as usize].1 = false;
                     }
                 }
             }
+        }
+
+        for (position, result) in authority.checks.iter() {
+            unsafe {
+                mark(
+                    "block-code-0",
+                    position.line_start,
+                    position.column_start,
+                    position.line_end,
+                    position.column_end,
+                    if *result {
+                      "background: #c1f1c1;"
+                    } else {
+                      "background: #ffa2a2;"
+                    },
+                )
+            };
+        }
+
+        for (id, block) in blocks.iter().enumerate() {
+            for (position, result) in block.checks.iter() {
+                unsafe {
+                    mark(
+                        &format!("block-code-{}", id+1),
+                        position.line_start,
+                        position.column_start,
+                        position.line_end,
+                        position.column_end,
+                        if *result {
+                            "background: #c1f1c1;"
+                        } else {
+                            "background: #ffa2a2;"
+                        },
+                    )
+                };
+            }
+        }
+
+        for (position, result) in verifier_checks.iter() {
+            unsafe {
+                mark(
+                    "verifier-code",
+                    position.line_start,
+                    position.column_start,
+                    position.line_end,
+                    position.column_end,
+                    if *result {
+                      "background: #c1f1c1;"
+                    } else {
+                      "background: #ffa2a2;"
+                    },
+                )
+            };
         }
     }
 
@@ -300,7 +326,7 @@ fn get_position(input: &str, span: &str) -> SourcePosition {
 #[derive(Clone, Debug)]
 struct Block {
     pub code: String,
-    pub checks: Vec<SourcePosition>,
+    pub checks: Vec<(SourcePosition, bool)>,
     pub enabled: bool,
 }
 
