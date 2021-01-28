@@ -82,10 +82,6 @@ pre.CodeMirror-line.caveat_success {
     background: #c1f1c1;
 }
 
-div.CodeMirror pre.CodeMirror-line {
-  font-size: 1rem;
-}
-
 pre {
     white-space: pre-wrap;
 }
@@ -131,11 +127,21 @@ pre {
   width: 100%;
 }
 
-div.CodeMirror {
-  height: 320px;
+@media (max-width: 1100px) {
+  div.CodeMirror pre.CodeMirror-line {
+    font-size: 1rem;
+  }
+
+  div.block div.CodeMirror {
+    height: 380px;
+  }
 }
 
 @media (min-width: 1100px) {
+  div.CodeMirror {
+    height: 320px;
+  }
+
   #biscuit-wrapper {
     margin: auto;
     padding-bottom: 10px;
