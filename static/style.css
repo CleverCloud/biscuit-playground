@@ -1,7 +1,7 @@
 body {
     background: #242933;
     color: #dfe4ed;
-    font-size: 1em;
+    font-size: 1rem;
     font-weight: 400;
     line-height: 1.5;
     margin: 0;
@@ -80,6 +80,10 @@ pre.CodeMirror-line.caveat_failure {
 
 pre.CodeMirror-line.caveat_success {
     background: #c1f1c1;
+}
+
+div.CodeMirror pre.CodeMirror-line {
+  font-size: 1rem;
 }
 
 pre {
