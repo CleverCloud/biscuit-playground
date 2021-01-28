@@ -28,10 +28,12 @@
                   is made of blocks, each block represents one attenuation level:
                   you can restrict the rights of a token by adding a new block.
                   Authorization policies are written in Datalog, where facts represent
-                  data, rules generate more facts from existing facts, and checks
+                  data, rules generate more facts from existing facts, checks
                   validate the presence of some facts. To pass the verification
                   phase, all of the checks must succeed.
                 </p>
+                <p>On the verifier's side, you can define a list of "allow" or "deny"
+                policies, that will be tred one by one until one of them matches</p>
                 <p>Test the behaviour of the example token by activating or
                   deactivating blocks or their data, changing conditions (like
                   <em>#read</em> operation to <em>#write</em> and see how the verifier will react)</p>
@@ -44,6 +46,8 @@
                 </ul>
                 <div class="sub-container">
                     <em>Token content</em>
+                    <p>This is the data that will be serialized in a Biscuit
+                    token:</p>
                     <!--<input
                         type="text"
                         size="45"
@@ -69,6 +73,10 @@
                   <p id="verifier-result">
                   </p>
 
+                  <h4>Verifier content</h4>
+                  <p>This is all of the data, rules, checks and policies
+                  that the verifier works with, after having applied all
+                  of the rules:</p>
                   <pre id="verifier-world"></pre>
               </div>
 

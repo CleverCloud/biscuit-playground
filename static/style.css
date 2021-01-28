@@ -127,8 +127,12 @@ pre {
 }
 
 .code {
-  height: 200px;
+  height: 300px;
   width: 100%;
+}
+
+div.CodeMirror {
+  height: 320px;
 }
 
 @media (min-width: 1100px) {
