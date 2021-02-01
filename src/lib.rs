@@ -8,6 +8,7 @@ use biscuit_auth::{
     error,
     parser::{parse_source, SourceResult},
     token::Biscuit,
+    token::verifier::VerifierLimits,
 };
 use log::*;
 use nom::Offset;
@@ -153,7 +154,9 @@ pub fn testBiscuit(parent_selector: &str) {
             verifier_policies.push(position);
         }
 
-        verifier_result = verifier.verify();
+        let mut limits = VerifierLimits::default();
+        limits.max_time = std::time::Duration::from_secs(2);
+        verifier_result = verifier.verify_with_limits(limits);
 
         output = verifier.print_world();
 
