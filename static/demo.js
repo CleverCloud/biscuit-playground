@@ -1,12 +1,33 @@
-import * as wasm from "./wasm.js"
+import init, {testBiscuit} from "./wasm.js"
 
-wasm.default()
 
-window.block_count = 0;
+function setup_editor(selector) {
+  var editor = document.querySelector(selector);
+  let cm = new CodeMirror.fromTextArea(editor, {
+    mode: 'biscuit',
+    autoCloseTags: true,
+    lineNumbers: true
+  });
 
-function add_block() {
-  let id = window.block_count;
-  let block_list = document.getElementById("block-list");
+  function updateTextArea() {
+    // somehow save() does not work
+    //cm.save();
+    var text = cm.getValue();
+
+    let editor = document.querySelector(selector);
+    editor.innerText = text;
+    editor.value = text;
+
+    const event = new Event('input');
+    editor.dispatchEvent(event);
+  }
+  cm.on('change', updateTextArea);
+  window.editors[selector] = cm;
+}
+
+function add_block(parent_sel, content) {
+  let id = window.block_count[parent_sel];
+  let block_list = document.querySelector(parent_sel + " .block-list");
 
   var element = document.createElement("li");
   element.class = "sub-container";
@@ -22,55 +43,63 @@ function add_block() {
   }
 
   element.innerHTML = `
-      <div class="block" id="block-${id}">
-          <div>
-              <span>
-                  <button onclick="delete_block(${id})"
-                      style="${should_display}"
-                  >-</button>
-                  <h4 style="display:inline">${ block_name }</h4>
-              </span>
-              <br />
-          </div>
+    <div class="block block-${id}">
+        <div>
+            <span>
+                <button onclick="delete_block('${parent_sel}', ${id})"
+                    style="${should_display}"
+                >-</button>
+                <h4 style="display:inline">${ block_name }</h4>
+            </span>
+            <br />
+        </div>
 
-          <textarea
-              class="code"
-              id=${ "block-code-" + id }
-              oninput="contentUpdate()"
-          ></textarea>
-      </div>`;
+        <textarea
+            class="code ${ "block-code-" + id }"
+            oninput="contentUpdate('${parent_sel}')"
+        >${ content }</textarea>
+    </div>`;
 
   block_list.appendChild(element);
-  window.block_count += 1;
+
+  setup_editor(parent_sel + " .block-code-"+id);
+  window.block_count[parent_sel] += 1;
 }
 
-add_block();
 window.add_block = add_block;
+window.block_count = [];
+window.editors = {};
+window.marks = [];
 
-function delete_block(id) {
-  let block = document.getElementById("block-"+id);
+function delete_block(parent_sel, id) {
+  let block = document.querySelector(parent_sel + " .block-"+id);
   let li = block.parentNode;
   li.parentNode.removeChild(li);
-  window.block_count -= 1;
+  window.block_count[parent_sel] -= 1;
+  delete window.editors[parent_sel + ".block-"+id];
 }
+
 window.delete_block = delete_block;
 
-function contentUpdate() {
-  /*var elements = document.getElementsByClassName('code');
-  for (var i=0, len=elements.length|0; i<len; i=i+1|0) {
-    console.log(elements[i].value);
-  }*/
+function contentUpdate(parent_sel) {
   console.log("will call testBiscuit");
-  wasm.testBiscuit()
+  testBiscuit(parent_sel)
 
 }
 
 window.contentUpdate = contentUpdate;
 
-function load() {
-  add_block();
-  var authority = document.getElementById("block-code-0");
-  authority.value = `// this is a fact, the basic data used in Datalog
+async function setup(parent_selector) {
+  console.log("will call wasm.default()");
+  await init()
+
+  console.log("setting up for "+parent_selector);
+  window.block_count[parent_selector] = 0;
+  window.editors[parent_selector] = {};
+
+
+  function load() {
+    add_block(parent_selector, `// this is a fact, the basic data used in Datalog
 // you can see it as one line in the "right" table
 // facts with #authority can only be in the first block
 right(#authority, "/folder1/file1", #read)
@@ -85,10 +114,9 @@ can_read($file) <- right(#authority, $file, #read)
 // this is a check. It will succeed if it finds matching
 // facts. Otherwise, the token validation will fail
 check if operation(#ambient, #read)
-`;
-
-  var block1 = document.getElementById("block-code-1");
-  block1.value = `// to restrict rights, we add blocks with more checks
+`);
+    add_block(parent_selector,
+`// to restrict rights, we add blocks with more checks
 // checks and rules can also test expressions along with
 // the presence of facts. To match, the expression must
 // evaluate to true
@@ -98,10 +126,10 @@ check if operation(#ambient, #read)
 check if
   resource(#ambient, $file),
   $file.starts_with("/folder1/")
-`;
+`);
 
-  var verifier = document.getElementById("verifier-code");
-  verifier.value = `// here we got a read request on /folder1/file1
+    var verifier = document.querySelector(parent_selector + " .verifier-code");
+    verifier.value = `// here we got a read request on /folder1/file1
 resource(#ambient, "/folder1/file1")
 operation(#ambient, #read)
 
@@ -115,65 +143,17 @@ allow if
 deny if true
 `;
 
-}
+    setup_editor(parent_selector + " .verifier-code");
+    const event = new Event('input');
+    verifier.dispatchEvent(event);
 
-load();
-
-window.editors = {};
-window.marks = [];
-
-function setup_codemirror() {
-  var current_editors = Object.keys(window.editors);
-  var new_editors = [];
-
-  var elements = document.getElementsByClassName('code');
-  for (var i=0, len=elements.length|0; i<len; i=i+1|0) {
-    var editor = elements[i];
-    new_editors.push(editor.id);
-
-    if(!current_editors.includes(editor.id)) {
-      let cm = new CodeMirror.fromTextArea(document.getElementById(editor.id), {
-        mode: 'biscuit',
-        autoCloseTags: true,
-        lineNumbers: true
-      });
-
-      let id = editor.id;
-
-      function updateTextArea() {
-        // somehow save() does not work
-        //cm.save();
-        var text = cm.getValue();
-
-        let editor = document.getElementById(id);
-        editor.innerText = text;
-        editor.value = text;
-
-        const event = new Event('input');
-        editor.dispatchEvent(event);
-      }
-      cm.on('change', updateTextArea);
-
-      //cm.addLineClass(3, "text", "caveat_success");
-      //var mark = cm.markText({line: 2, ch:2}, {line:3, ch:5}, { css: "background: #c1f1c1;" });
-      window.editors[editor.id] = cm;
-      //window.marks.push(mark);
-    }
-    //result += "\n  " + allOrangeJuiceByClass[i].textContent;
   }
 
-  for(var i=0; i < current_editors.length; i=i+1) {
-    if(!new_editors.includes(current_editors[i])) {
-      delete window.editors[current_editors[i]];
-    }
-  }
 
-  //console.log(window.editors);
+  load();
 }
 
-setup_codemirror();
-setTimeout(function() {
-        const event = new Event('input');
-        document.getElementById('verifier-code').dispatchEvent(event);
-}, 500);
-setInterval(setup_codemirror, 2000);
+window.setup = setup;
+console.log("setup function defined");
+
+export { setup }

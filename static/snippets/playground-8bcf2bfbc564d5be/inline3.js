@@ -1,4 +1,4 @@
-export function set_token_content(content) {
-    var element = document.getElementById("token-content");
+export function set_token_content(parent, content) {
+    var element = document.querySelector(parent+" .token-content");
     element.innerText = content;
 }

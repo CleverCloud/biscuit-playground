@@ -28,6 +28,7 @@ features = [
   'Element',
   'HtmlElement',
   'Node',
+  'NodeList',
   'Window',
   'HtmlCollection',
   'HtmlTextAreaElement',

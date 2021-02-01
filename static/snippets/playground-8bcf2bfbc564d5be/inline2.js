@@ -1,6 +1,6 @@
-export function set_verifier_result(error, world) {
-    var element = document.getElementById("verifier-result");
+export function set_verifier_result(parent, error, world) {
+    var element = document.querySelector(parent + " .verifier-result");
     element.innerText = error;
-    var element = document.getElementById("verifier-world");
+    var element = document.querySelector(parent + " .verifier-world");
     element.innerText = world;
 }

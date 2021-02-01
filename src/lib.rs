@@ -26,13 +26,14 @@ extern "C" {
 }
 
 #[wasm_bindgen]
-pub fn testBiscuit() {
+pub fn testBiscuit(parent_selector: &str) {
     unsafe {
         log("testBiscuit");
     }
     let window = web_sys::window().expect("no global `window` exists");
     let document = window.document().expect("should have a document on window");
-    let collection = document.get_elements_by_class_name("code");
+    //let collection = document.get_elements_by_class_name("code");
+    let collection = document.query_selector_all(&format!("{} .code", parent_selector)).unwrap();
 
     let mut block_codes = Vec::new();
     for i in 0..collection.length() - 1 {
@@ -55,8 +56,8 @@ pub fn testBiscuit() {
 
     unsafe { clear_marks() };
 
-    set_token_content(String::new());
-    set_verifier_result(String::new(), String::new());
+    set_token_content(parent_selector, String::new());
+    set_verifier_result(parent_selector, String::new(), String::new());
 
     let mut rng: StdRng = SeedableRng::seed_from_u64(0);
     let root = KeyPair::new_with_rng(&mut rng);
@@ -159,7 +160,7 @@ pub fn testBiscuit() {
         let v = token.to_vec().unwrap();
         //self.serialized = Some(base64::encode_config(&v[..], base64::URL_SAFE));
         //self.biscuit = Some(token);
-        set_token_content(token.print());
+        set_token_content(parent_selector, token.print());
 
         match &verifier_result {
             Err(error::Token::FailedLogic(error::Logic::FailedChecks(v))) => {
@@ -190,7 +191,7 @@ pub fn testBiscuit() {
                 let position = &verifier_policies[*index];
                 unsafe {
                     mark(
-                        "verifier-code",
+                        &format!("{} .verifier-code", parent_selector),
                         position.line_start,
                         position.column_start,
                         position.line_end,
@@ -203,7 +204,7 @@ pub fn testBiscuit() {
                 let position = &verifier_policies[*index];
                 unsafe {
                     mark(
-                        "verifier-code",
+                        &format!("{} .verifier-code", parent_selector),
                         position.line_start,
                         position.column_start,
                         position.line_end,
@@ -218,7 +219,7 @@ pub fn testBiscuit() {
         for (position, result) in authority.checks.iter() {
             unsafe {
                 mark(
-                    "block-code-0",
+                    &format!("{} .block-code-0", parent_selector),
                     position.line_start,
                     position.column_start,
                     position.line_end,
@@ -236,7 +237,7 @@ pub fn testBiscuit() {
             for (position, result) in block.checks.iter() {
                 unsafe {
                     mark(
-                        &format!("block-code-{}", id+1),
+                        &format!("{} .block-code-{}", parent_selector, id+1),
                         position.line_start,
                         position.column_start,
                         position.line_end,
@@ -254,7 +255,7 @@ pub fn testBiscuit() {
         for (position, result) in verifier_checks.iter() {
             unsafe {
                 mark(
-                    "verifier-code",
+                    &format!("{} .verifier-code", parent_selector),
                     position.line_start,
                     position.column_start,
                     position.line_end,
@@ -270,6 +271,7 @@ pub fn testBiscuit() {
     }
 
     set_verifier_result(
+        parent_selector,
         match &verifier_result {
             Err(e) => format!("Error: {:?}", e),
             Ok(_) => "Success".to_string(),
@@ -283,7 +285,7 @@ pub fn run_app() {
     wasm_logger::init(wasm_logger::Config::default());
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
-    unsafe { log("hello") }
+    unsafe { log("wasm run_app") }
 }
 
 #[derive(Clone, Debug)]
@@ -447,10 +449,10 @@ extern "C" {
 }
 
 #[wasm_bindgen(
-    inline_js = "export function mark(id, line_start, column_start, line_end, column_end, style) {
-    console.log(\"adding mark in \"+id);
+    inline_js = "export function mark(selector, line_start, column_start, line_end, column_end, style) {
+    console.log(\"adding mark in \"+selector);
 
-    var mark = window.editors[id].markText(
+    var mark = window.editors[selector].markText(
       {line: line_start, ch: column_start},
       {line: line_end, ch: column_end},
       {css: style}
@@ -461,7 +463,7 @@ extern "C" {
 )]
 extern "C" {
     fn mark(
-        id: &str,
+        selector: &str,
         line_start: usize,
         column_start: usize,
         line_end: usize,
@@ -470,20 +472,20 @@ extern "C" {
     );
 }
 
-#[wasm_bindgen(inline_js = "export function set_verifier_result(error, world) {
-    var element = document.getElementById(\"verifier-result\");
+#[wasm_bindgen(inline_js = "export function set_verifier_result(parent, error, world) {
+    var element = document.querySelector(parent + \" .verifier-result\");
     element.innerText = error;
-    var element = document.getElementById(\"verifier-world\");
+    var element = document.querySelector(parent + \" .verifier-world\");
     element.innerText = world;
 }")]
 extern "C" {
-    fn set_verifier_result(error: String, world: String);
+    fn set_verifier_result(parent: &str, error: String, world: String);
 }
 
-#[wasm_bindgen(inline_js = "export function set_token_content(content) {
-    var element = document.getElementById(\"token-content\");
+#[wasm_bindgen(inline_js = "export function set_token_content(parent, content) {
+    var element = document.querySelector(parent+\" .token-content\");
     element.innerText = content;
 }")]
 extern "C" {
-    fn set_token_content(content: String);
+    fn set_token_content(parent: &str, content: String);
 }
