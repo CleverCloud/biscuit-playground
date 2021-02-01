@@ -67,6 +67,7 @@ function add_block(parent_sel, content) {
 }
 
 window.add_block = add_block;
+window.setup_editor = setup_editor;
 window.block_count = [];
 window.editors = {};
 window.marks = [];
@@ -96,61 +97,6 @@ async function setup(parent_selector) {
   console.log("setting up for "+parent_selector);
   window.block_count[parent_selector] = 0;
   window.editors[parent_selector] = {};
-
-
-  function load() {
-    add_block(parent_selector, `// this is a fact, the basic data used in Datalog
-// you can see it as one line in the "right" table
-// facts with #authority can only be in the first block
-right(#authority, "/folder1/file1", #read)
-right(#authority, "/folder1/file1", #write)
-right(#authority, "/folder2/file1", #read)
-
-// rules generate more facts from existing ones. You can
-// read it as "generate can_read with the content $file
-// if there exists a 'right' fact that matches"
-can_read($file) <- right(#authority, $file, #read)
-
-// this is a check. It will succeed if it finds matching
-// facts. Otherwise, the token validation will fail
-check if operation(#ambient, #read)
-`);
-    add_block(parent_selector,
-`// to restrict rights, we add blocks with more checks
-// checks and rules can also test expressions along with
-// the presence of facts. To match, the expression must
-// evaluate to true
-// #ambient indicates facts provided by the verifier to
-// evaluate the request, like which resource is accessed,
-// or what is the current date
-check if
-  resource(#ambient, $file),
-  $file.starts_with("/folder1/")
-`);
-
-    var verifier = document.querySelector(parent_selector + " .verifier-code");
-    verifier.value = `// here we got a read request on /folder1/file1
-resource(#ambient, "/folder1/file1")
-operation(#ambient, #read)
-
-// if this matches, the verification will succeed
-allow if
-  resource(#ambient, $file),
-  operation(#ambient, $op),
-  right(#authority, $file, $op)
-
-// this catch-all policy will refuse the request
-deny if true
-`;
-
-    setup_editor(parent_selector + " .verifier-code");
-    const event = new Event('input');
-    verifier.dispatchEvent(event);
-
-  }
-
-
-  load();
 }
 
 window.setup = setup;
