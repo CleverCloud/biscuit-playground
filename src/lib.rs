@@ -8,7 +8,7 @@ use biscuit_auth::{
     error,
     parser::{parse_source, SourceResult},
     token::Biscuit,
-    token::verifier::VerifierLimits,
+    token::verifier::{Verifier, VerifierLimits},
 };
 use log::*;
 use nom::Offset;
@@ -69,54 +69,68 @@ pub fn testBiscuit(parent_selector: &str) {
     let mut authority = Block::default();
     let mut blocks = Vec::new();
 
-    if let Ok((_, authority_parsed)) = parse_source(&block_codes[0]) {
-        for (_, fact) in authority_parsed.facts.iter() {
-            builder.add_authority_fact(fact.clone()).unwrap();
+    let mut token_opt = None;
+
+    if !block_codes.is_empty() {
+        if let Ok((_, authority_parsed)) = parse_source(&block_codes[0]) {
+            for (_, fact) in authority_parsed.facts.iter() {
+                builder.add_authority_fact(fact.clone()).unwrap();
+            }
+
+            for (_, rule) in authority_parsed.rules.iter() {
+                builder.add_authority_rule(rule.clone()).unwrap();
+            }
+
+            for (i, check) in authority_parsed.checks.iter() {
+                builder.add_authority_check(check.clone()).unwrap();
+                let position = get_position(&block_codes[0], i);
+                authority.checks.push((position, true));
+            }
         }
 
-        for (_, rule) in authority_parsed.rules.iter() {
-            builder.add_authority_rule(rule.clone()).unwrap();
+        let mut token = builder.build_with_rng(&mut rng).unwrap();
+
+        for code in (&block_codes[1..]).iter() {
+            let mut block = Block::default();
+
+            let temp_keypair = KeyPair::new_with_rng(&mut rng);
+            let mut builder = token.create_block();
+
+            if let Ok((_, block_parsed)) = parse_source(&code) {
+                for (_, fact) in block_parsed.facts.iter() {
+                    builder.add_fact(fact.clone()).unwrap();
+                }
+
+                for (_, rule) in block_parsed.rules.iter() {
+                    builder.add_rule(rule.clone()).unwrap();
+                }
+
+                for (i, check) in block_parsed.checks.iter() {
+                    builder.add_check(check.clone()).unwrap();
+                    let position = get_position(&code, i);
+                    block.checks.push((position, true));
+                }
+            }
+
+            token = token
+                .append_with_rng(&mut rng, &temp_keypair, builder)
+                .unwrap();
+
+            blocks.push(block);
         }
 
-        for (i, check) in authority_parsed.checks.iter() {
-            builder.add_authority_check(check.clone()).unwrap();
-            let position = get_position(&block_codes[0], i);
-            authority.checks.push((position, true));
-        }
+        let v = token.to_vec().unwrap();
+        //self.serialized = Some(base64::encode_config(&v[..], base64::URL_SAFE));
+        //self.biscuit = Some(token);
+        set_token_content(parent_selector, token.print());
+
+        token_opt = Some(token);
     }
 
-    let mut token = builder.build_with_rng(&mut rng).unwrap();
-
-    for code in (&block_codes[1..]).iter() {
-        let mut block = Block::default();
-
-        let temp_keypair = KeyPair::new_with_rng(&mut rng);
-        let mut builder = token.create_block();
-
-        if let Ok((_, block_parsed)) = parse_source(&code) {
-            for (_, fact) in block_parsed.facts.iter() {
-                builder.add_fact(fact.clone()).unwrap();
-            }
-
-            for (_, rule) in block_parsed.rules.iter() {
-                builder.add_rule(rule.clone()).unwrap();
-            }
-
-            for (i, check) in block_parsed.checks.iter() {
-                builder.add_check(check.clone()).unwrap();
-                let position = get_position(&code, i);
-                block.checks.push((position, true));
-            }
-        }
-
-        token = token
-            .append_with_rng(&mut rng, &temp_keypair, builder)
-            .unwrap();
-
-        blocks.push(block);
-    }
-
-    let mut verifier = token.verify(root.public()).unwrap();
+    let mut verifier = match token_opt {
+        Some(token) => token.verify(root.public()).unwrap(),
+        None => Verifier::new().unwrap(),
+    };
 
     info!("verifier source:\n{}", &verifier_code);
 
@@ -160,11 +174,6 @@ pub fn testBiscuit(parent_selector: &str) {
         verifier_result = verifier.verify_with_limits(limits);
 
         output = verifier.print_world();
-
-        let v = token.to_vec().unwrap();
-        //self.serialized = Some(base64::encode_config(&v[..], base64::URL_SAFE));
-        //self.biscuit = Some(token);
-        set_token_content(parent_selector, token.print());
 
         match &verifier_result {
             Err(error::Token::FailedLogic(error::Logic::FailedChecks(v))) => {
