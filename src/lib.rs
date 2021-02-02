@@ -1,7 +1,7 @@
 #![recursion_limit = "512"]
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use web_sys::HtmlTextAreaElement;
+use web_sys::{HtmlTextAreaElement, HtmlInputElement};
 //use yew::prelude::*;
 use biscuit_auth::{
     crypto::{KeyPair, PublicKey},
@@ -282,6 +282,25 @@ pub fn testBiscuit(parent_selector: &str) {
                     )
                 };
             }
+
+            if let Some(query_element) = document.query_selector(&format!("{} .query", parent_selector)).unwrap() {
+                let input = query_element.dyn_ref::<HtmlInputElement>().unwrap();
+                let query = input.value();
+                log(&format!("got query content: {}", query));
+                set_query_result(parent_selector, String::new());
+
+                if !query.is_empty() {
+                    let query_result = verifier.query(query.as_str());
+                    match query_result {
+                        Err(e) => set_query_result(parent_selector, format!("Error: {:?}", e)),
+                        Ok(facts) => {
+                            let facts: Vec<String> = facts.iter().map(|f| f.to_string()).collect();
+                            let result = facts.join(",\n");
+                            set_query_result(parent_selector, result);
+                        }
+                    }
+                }
+            }
         }
 
         set_verifier_result(
@@ -503,4 +522,12 @@ extern "C" {
 }")]
 extern "C" {
     fn set_token_content(parent: &str, content: String);
+}
+
+#[wasm_bindgen(inline_js = "export function set_query_result(parent, result) {
+    var element = document.querySelector(parent + \" .query-result\");
+    element.innerText = result;
+}")]
+extern "C" {
+    fn set_query_result(parent: &str, result: String);
 }

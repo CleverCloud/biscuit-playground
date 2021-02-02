@@ -33,6 +33,7 @@ features = [
   'HtmlCollection',
   'HtmlTextAreaElement',
   'HtmlParagraphElement',
+  'HtmlInputElement',
 ]
 
 [profile.release]
