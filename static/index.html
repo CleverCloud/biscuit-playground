@@ -90,6 +90,7 @@
           await setup("#biscuit-wrapper");
 
           var parent_selector = "#biscuit-wrapper";
+
           add_block(parent_selector, `// this is a fact, the basic data used in Datalog
 // you can see it as one line in the "right" table
 // facts with #authority can only be in the first block
@@ -135,9 +136,8 @@ deny if true
 `;
 
     setup_editor(parent_selector + " .verifier-code");
-    const event = new Event('input');
-    verifier.dispatchEvent(event);
 
+    contentUpdate("#biscuit-wrapper");
   }
     load();
     </script>

@@ -36,6 +36,8 @@ pub fn testBiscuit(parent_selector: &str) {
     //let collection = document.get_elements_by_class_name("code");
     let collection = document.query_selector_all(&format!("{} .block-code", parent_selector)).unwrap();
 
+    unsafe { clear_marks() };
+
     let mut block_codes = Vec::new();
     for i in 0..collection.length() {
         let element = collection.item(i).unwrap();
@@ -46,20 +48,7 @@ pub fn testBiscuit(parent_selector: &str) {
         block_codes.push(textarea.value());
     }
 
-    let verifier_element = document.query_selector(&format!("{} .verifier-code", parent_selector)).unwrap().unwrap();
-    let textarea = verifier_element.dyn_ref::<HtmlTextAreaElement>().unwrap();
-    unsafe {
-        log(&format!("got content: {}", textarea.value()));
-    }
-
-    let verifier_code = textarea.value();
-
     info!("will generate token");
-
-    unsafe { clear_marks() };
-
-    set_token_content(parent_selector, String::new());
-    set_verifier_result(parent_selector, String::new(), String::new());
 
     let mut rng: StdRng = SeedableRng::seed_from_u64(0);
     let root = KeyPair::new_with_rng(&mut rng);
@@ -72,6 +61,8 @@ pub fn testBiscuit(parent_selector: &str) {
     let mut token_opt = None;
 
     if !block_codes.is_empty() {
+        set_token_content(parent_selector, String::new());
+
         if let Ok((_, authority_parsed)) = parse_source(&block_codes[0]) {
             for (_, fact) in authority_parsed.facts.iter() {
                 builder.add_authority_fact(fact.clone()).unwrap();
@@ -127,170 +118,181 @@ pub fn testBiscuit(parent_selector: &str) {
         token_opt = Some(token);
     }
 
-    let mut verifier = match token_opt {
-        Some(token) => token.verify(root.public()).unwrap(),
-        None => Verifier::new().unwrap(),
-    };
-
-    info!("verifier source:\n{}", &verifier_code);
-
-    let verifier_result;
-    let output;
-
-    let res = parse_source(&verifier_code);
-    if let Err(e) = res {
-        verifier_result = Err(error::Token::ParseError);
-        output = e.to_string();
-    } else {
-        let mut verifier_checks = Vec::new();
-        let mut verifier_policies = Vec::new();
-
-        let (_, parsed) = res.unwrap();
-
-        for (_, fact) in parsed.facts.iter() {
-            verifier.add_fact(fact.clone()).unwrap();
+    if let Some(verifier_element) = document.query_selector(&format!("{} .verifier-code", parent_selector)).unwrap() {
+        let textarea = verifier_element.dyn_ref::<HtmlTextAreaElement>().unwrap();
+        unsafe {
+            log(&format!("got content: {}", textarea.value()));
         }
 
-        for (_, rule) in parsed.rules.iter() {
-            verifier.add_rule(rule.clone()).unwrap();
-        }
+        let verifier_code = textarea.value();
 
-        for (i, check) in parsed.checks.iter() {
-            verifier.add_check(check.clone()).unwrap();
-            let position = get_position(&verifier_code, i);
-            // checks are marked as success until they fail
-            verifier_checks.push((position, true));
-        }
+        set_verifier_result(parent_selector, String::new(), String::new());
 
-        for (i, policy) in parsed.policies.iter() {
-            verifier.add_policy(policy.clone()).unwrap();
-            let position = get_position(&verifier_code, i);
-            // checks are marked as success until they fail
-            verifier_policies.push(position);
-        }
+        let mut verifier = match token_opt {
+            Some(token) => token.verify(root.public()).unwrap(),
+            None => Verifier::new().unwrap(),
+        };
 
-        let mut limits = VerifierLimits::default();
-        limits.max_time = std::time::Duration::from_secs(2);
-        verifier_result = verifier.verify_with_limits(limits);
+        info!("verifier source:\n{}", &verifier_code);
 
-        output = verifier.print_world();
+        let verifier_result;
+        let output;
 
-        match &verifier_result {
-            Err(error::Token::FailedLogic(error::Logic::FailedChecks(v))) => {
-                for e in v.iter() {
-                    match e {
-                        error::FailedCheck::Verifier(error::FailedVerifierCheck {
-                            check_id, ..
-                        }) => {
+        let res = parse_source(&verifier_code);
+        if let Err(e) = res {
+            verifier_result = Err(error::Token::ParseError);
+            output = e.to_string();
+        } else {
+            let mut verifier_checks = Vec::new();
+            let mut verifier_policies = Vec::new();
 
-                            verifier_checks[*check_id as usize].1 = false;
-                        }
-                        error::FailedCheck::Block(error::FailedBlockCheck {
-                            block_id,
-                            check_id,
-                            ..
-                        }) => {
-                            let block = if *block_id == 0 {
-                                &mut authority
-                            } else {
-                                &mut blocks[*block_id as usize - 1]
-                            };
-                            block.checks[*check_id as usize].1 = false;
+            let (_, parsed) = res.unwrap();
+
+            for (_, fact) in parsed.facts.iter() {
+                verifier.add_fact(fact.clone()).unwrap();
+            }
+
+            for (_, rule) in parsed.rules.iter() {
+                verifier.add_rule(rule.clone()).unwrap();
+            }
+
+            for (i, check) in parsed.checks.iter() {
+                verifier.add_check(check.clone()).unwrap();
+                let position = get_position(&verifier_code, i);
+                // checks are marked as success until they fail
+                verifier_checks.push((position, true));
+            }
+
+            for (i, policy) in parsed.policies.iter() {
+                verifier.add_policy(policy.clone()).unwrap();
+                let position = get_position(&verifier_code, i);
+                // checks are marked as success until they fail
+                verifier_policies.push(position);
+            }
+
+            let mut limits = VerifierLimits::default();
+            limits.max_time = std::time::Duration::from_secs(2);
+            verifier_result = verifier.verify_with_limits(limits);
+
+            output = verifier.print_world();
+
+            match &verifier_result {
+                Err(error::Token::FailedLogic(error::Logic::FailedChecks(v))) => {
+                    for e in v.iter() {
+                        match e {
+                            error::FailedCheck::Verifier(error::FailedVerifierCheck {
+                                check_id, ..
+                            }) => {
+
+                                verifier_checks[*check_id as usize].1 = false;
+                            }
+                            error::FailedCheck::Block(error::FailedBlockCheck {
+                                block_id,
+                                check_id,
+                                ..
+                            }) => {
+                                let block = if *block_id == 0 {
+                                    &mut authority
+                                } else {
+                                    &mut blocks[*block_id as usize - 1]
+                                };
+                                block.checks[*check_id as usize].1 = false;
+                            }
                         }
                     }
-                }
-            },
-            Err(error::Token::FailedLogic(error::Logic::Deny(index))) => {
-                let position = &verifier_policies[*index];
-                unsafe {
-                    mark(
-                        &format!("{} .verifier-code", parent_selector),
-                        position.line_start,
-                        position.column_start,
-                        position.line_end,
-                        position.column_end,
-                        "background: #ffa2a2;"
-                    )
-                };
-            },
-            Ok(index) => {
-                let position = &verifier_policies[*index];
-                unsafe {
-                    mark(
-                        &format!("{} .verifier-code", parent_selector),
-                        position.line_start,
-                        position.column_start,
-                        position.line_end,
-                        position.column_end,
-                        "background: #c1f1c1;"
-                    )
-                };
-            },
-            _ => {},
-        }
+                },
+                Err(error::Token::FailedLogic(error::Logic::Deny(index))) => {
+                    let position = &verifier_policies[*index];
+                    unsafe {
+                        mark(
+                            &format!("{} .verifier-code", parent_selector),
+                            position.line_start,
+                            position.column_start,
+                            position.line_end,
+                            position.column_end,
+                            "background: #ffa2a2;"
+                        )
+                    };
+                },
+                Ok(index) => {
+                    let position = &verifier_policies[*index];
+                    unsafe {
+                        mark(
+                            &format!("{} .verifier-code", parent_selector),
+                            position.line_start,
+                            position.column_start,
+                            position.line_end,
+                            position.column_end,
+                            "background: #c1f1c1;"
+                        )
+                    };
+                },
+                _ => {},
+            }
 
-        for (position, result) in authority.checks.iter() {
-            unsafe {
-                mark(
-                    &format!("{} .block-code-0", parent_selector),
-                    position.line_start,
-                    position.column_start,
-                    position.line_end,
-                    position.column_end,
-                    if *result {
-                      "background: #c1f1c1;"
-                    } else {
-                      "background: #ffa2a2;"
-                    },
-                )
-            };
-        }
-
-        for (id, block) in blocks.iter().enumerate() {
-            for (position, result) in block.checks.iter() {
+            for (position, result) in authority.checks.iter() {
                 unsafe {
                     mark(
-                        &format!("{} .block-code-{}", parent_selector, id+1),
+                        &format!("{} .block-code-0", parent_selector),
                         position.line_start,
                         position.column_start,
                         position.line_end,
                         position.column_end,
                         if *result {
-                            "background: #c1f1c1;"
+                          "background: #c1f1c1;"
                         } else {
-                            "background: #ffa2a2;"
+                          "background: #ffa2a2;"
+                        },
+                    )
+                };
+            }
+
+            for (id, block) in blocks.iter().enumerate() {
+                for (position, result) in block.checks.iter() {
+                    unsafe {
+                        mark(
+                            &format!("{} .block-code-{}", parent_selector, id+1),
+                            position.line_start,
+                            position.column_start,
+                            position.line_end,
+                            position.column_end,
+                            if *result {
+                                "background: #c1f1c1;"
+                            } else {
+                                "background: #ffa2a2;"
+                            },
+                        )
+                    };
+                }
+            }
+
+            for (position, result) in verifier_checks.iter() {
+                unsafe {
+                    mark(
+                        &format!("{} .verifier-code", parent_selector),
+                        position.line_start,
+                        position.column_start,
+                        position.line_end,
+                        position.column_end,
+                        if *result {
+                          "background: #c1f1c1;"
+                        } else {
+                          "background: #ffa2a2;"
                         },
                     )
                 };
             }
         }
 
-        for (position, result) in verifier_checks.iter() {
-            unsafe {
-                mark(
-                    &format!("{} .verifier-code", parent_selector),
-                    position.line_start,
-                    position.column_start,
-                    position.line_end,
-                    position.column_end,
-                    if *result {
-                      "background: #c1f1c1;"
-                    } else {
-                      "background: #ffa2a2;"
-                    },
-                )
-            };
-        }
+        set_verifier_result(
+            parent_selector,
+            match &verifier_result {
+                Err(e) => format!("Error: {:?}", e),
+                Ok(_) => "Success".to_string(),
+            },
+            output,
+        );
     }
-
-    set_verifier_result(
-        parent_selector,
-        match &verifier_result {
-            Err(e) => format!("Error: {:?}", e),
-            Ok(_) => "Success".to_string(),
-        },
-        output,
-    );
 }
 
 #[wasm_bindgen(start)]
