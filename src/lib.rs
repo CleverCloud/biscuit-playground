@@ -34,10 +34,10 @@ pub fn testBiscuit(parent_selector: &str) {
     let window = web_sys::window().expect("no global `window` exists");
     let document = window.document().expect("should have a document on window");
     //let collection = document.get_elements_by_class_name("code");
-    let collection = document.query_selector_all(&format!("{} .code", parent_selector)).unwrap();
+    let collection = document.query_selector_all(&format!("{} .block-code", parent_selector)).unwrap();
 
     let mut block_codes = Vec::new();
-    for i in 0..collection.length() - 1 {
+    for i in 0..collection.length() {
         let element = collection.item(i).unwrap();
         let textarea = element.dyn_ref::<HtmlTextAreaElement>().unwrap();
         unsafe {
@@ -45,8 +45,9 @@ pub fn testBiscuit(parent_selector: &str) {
         }
         block_codes.push(textarea.value());
     }
-    let element = collection.item(collection.length() - 1).unwrap();
-    let textarea = element.dyn_ref::<HtmlTextAreaElement>().unwrap();
+
+    let verifier_element = document.query_selector(&format!("{} .verifier-code", parent_selector)).unwrap().unwrap();
+    let textarea = verifier_element.dyn_ref::<HtmlTextAreaElement>().unwrap();
     unsafe {
         log(&format!("got content: {}", textarea.value()));
     }

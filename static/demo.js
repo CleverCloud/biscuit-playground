@@ -55,7 +55,7 @@ function add_block(parent_sel, content) {
         </div>
 
         <textarea
-            class="code ${ "block-code-" + id }"
+            class="code block-code ${ "block-code-" + id }"
             oninput="contentUpdate('${parent_sel}')"
         >${ content }</textarea>
     </div>`;
