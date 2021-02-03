@@ -119,6 +119,13 @@
               delete_block(parent_selector, window.block_count[parent_selector] - 1);
           }
 
+          var verifier = document.querySelector(parent_selector + " .verifier-code");
+          var cm = window.editors[parent_selector + " .verifier-code"];
+          if(cm !== undefined) {
+              var wrapper = cm.getWrapperElement();
+              wrapper.parentNode.removeChild(wrapper);
+              delete window.editors[parent_selector + " .verifier-code"];
+          }
 
           if(value == "files") {
               add_block(parent_selector,
@@ -151,7 +158,6 @@ check if
   $file.starts_with("/folder1/")
 `);
 
-              var verifier = document.querySelector(parent_selector + " .verifier-code");
               verifier.value =
 `// here we got a read request on /folder1/file1
 resource(#ambient, "/folder1/file1")
