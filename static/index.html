@@ -175,7 +175,51 @@ deny if true
 
               setup_editor(parent_selector + " .verifier-code");
         } else if(value == "RBAC") {
-            alert("hello");
+            add_block(parent_selector,
+`// we define a token that will only contain a user id
+user(#authority, #user_123)
+`);
+              verifier.value =
+`// here we got a read request on /projects/1
+resource(#ambient, "PROJECT1")
+operation(#ambient, #read)
+
+role(#authority, #user_123, "team1_member")
+role(#authority, #user_123, "team2_member")
+role(#authority, #user_456, "team1_manager")
+role(#authority, #user_456, "team2_member")
+role(#authority, #user_789, "admin")
+
+// a manager automatically gets the right of a member
+role(#authority, $user_id, "team1_member") <-
+    role(#authority, $user_id, "team1_manager")
+
+// an admin automatically gets manager roles
+role(#authority, $user_id, "team1_manager") <-
+    role(#authority, $user_id, "admin")
+
+role(#authority, $user_id, "team2_manager") <-
+    role(#authority, $user_id, "admin")
+
+role_rights(#authority, "team1_member", "PROJECT1", [#read])
+role_rights(#authority, "team1_manager", "PROJECT1", [#read, #write, #delete])
+
+role_rights(#authority, "team2_member", "PROJECT2", [#read])
+role_rights(#authority, "team2_manager", "PROJECT2", [#read, #write, #delete])
+
+allow if
+  resource(#ambient, $project),
+  operation(#ambient, $op),
+  user(#authority, $user_id),
+  role(#authority, $user_id, $role),
+  role_rights(#authority, $role, $project, $rights),
+  $rights.contains($op)
+
+// this catch-all policy will refuse the request
+deny if true
+`;
+
+              setup_editor(parent_selector + " .verifier-code");
         }
 
     contentUpdate("#biscuit-wrapper");
