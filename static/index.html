@@ -38,6 +38,13 @@
                 <p>Test the behaviour of the example token by activating or
                   deactivating blocks or their data, changing conditions (like
                   <em>#read</em> operation to <em>#write</em> and see how the verifier will react).</p>
+
+                <p>Choose an example:
+                <select name="example" onchange="select_example(this)">
+                  <option value="files">Files</option>
+                  <option value="RBAC">Role Based Access Control</option>
+                </select>
+                </p>
             </div>
 
             <div id="token" class="container">
@@ -98,10 +105,24 @@
 
         async function load() {
           await setup("#biscuit-wrapper");
+          load_example()
+        }
 
+        async function load_example(value) {
           var parent_selector = "#biscuit-wrapper";
 
-          add_block(parent_selector, `// this is a fact, the basic data used in Datalog
+          if(value == undefined) {
+            value = "files";
+          }
+
+          while(window.block_count[parent_selector] > 0) {
+              delete_block(parent_selector, window.block_count[parent_selector] - 1);
+          }
+
+
+          if(value == "files") {
+              add_block(parent_selector,
+`// this is a fact, the basic data used in Datalog
 // you can see it as one line in the "right" table
 // facts with #authority can only be in the first block
 right(#authority, "/folder1/file1", #read)
@@ -117,7 +138,7 @@ can_read($file) <- right(#authority, $file, #read)
 // facts. Otherwise, the token validation will fail
 check if operation(#ambient, #read)
 `);
-          add_block(parent_selector,
+              add_block(parent_selector,
 `// to restrict rights, we add blocks with more checks
 // checks and rules can also test expressions along with
 // the presence of facts. To match, the expression must
@@ -130,8 +151,9 @@ check if
   $file.starts_with("/folder1/")
 `);
 
-    var verifier = document.querySelector(parent_selector + " .verifier-code");
-    verifier.value = `// here we got a read request on /folder1/file1
+              var verifier = document.querySelector(parent_selector + " .verifier-code");
+              verifier.value =
+`// here we got a read request on /folder1/file1
 resource(#ambient, "/folder1/file1")
 operation(#ambient, #read)
 
@@ -145,11 +167,21 @@ allow if
 deny if true
 `;
 
-    setup_editor(parent_selector + " .verifier-code");
+              setup_editor(parent_selector + " .verifier-code");
+        } else if(value == "RBAC") {
+            alert("hello");
+        }
 
     contentUpdate("#biscuit-wrapper");
   }
+
+    function select_example(element) {
+      load_example(element.value);
+    }
+    window.select_example = select_example;
     load();
+
+    //load_example();
     </script>
 
     </body>
