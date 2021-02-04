@@ -3,10 +3,31 @@ import init, {testBiscuit} from "./wasm.js"
 
 function setup_editor(selector) {
   var editor = document.querySelector(selector);
+
+  window.editor_lints[selector] = [];
+  /*window.editor_lints[selector] = [
+    {
+      message: "pouet",
+      severity: "warning",
+      from: CodeMirror.Pos(0, 1),
+      to: CodeMirror.Pos(2, 4)
+    }];*/
+
+  function get_editor_lints() {
+    var this_selector = selector;
+    var lints = window.editor_lints[this_selector];
+    return lints;
+  }
+
   let cm = new CodeMirror.fromTextArea(editor, {
     mode: 'biscuit',
     autoCloseTags: true,
-    lineNumbers: true
+    lineNumbers: true,
+    gutters: ["CodeMirror-lint-markers"],
+    lintOnChange: false,
+    lint: {
+      getAnnotations: get_editor_lints,
+    },
   });
 
   function updateTextArea() {
@@ -70,6 +91,7 @@ window.add_block = add_block;
 window.setup_editor = setup_editor;
 window.block_count = [];
 window.editors = {};
+window.editor_lints = {};
 window.marks = [];
 
 function delete_block(parent_sel, id) {
@@ -84,8 +106,42 @@ window.delete_block = delete_block;
 
 function contentUpdate(parent_sel) {
   console.log("will call testBiscuit");
+
+  for (var key in window.editor_lints) {
+    if (window.editor_lints.hasOwnProperty(key)) {
+      delete window.editor_lints[key];
+    }
+  }
+
   testBiscuit(parent_sel)
 
+  for (var key in window.editors) {
+    if (window.editors.hasOwnProperty(key)) {
+        var editor = window.editors[key];
+        if(editor !== undefined) {
+          // clear markers
+          var state = editor.state.lint;
+          if(state.hasGutter) editor.clearGutter("CodeMirror-lint-markers");
+          for (var i = 0; i < state.marked.length; ++i) {
+            state.marked[i].clear();
+          }
+          state.marked.length = 0;
+
+          editor.setOption("lint", false);
+
+          let this_selector = key;
+          function get_editor_lints() {
+            var lints = window.editor_lints[this_selector];
+            console.log("lints for "+this_selector);
+            console.debug(lints);
+            return lints;
+          }
+          editor.setOption("lint", {
+            getAnnotations: get_editor_lints,
+          });
+        }
+    }
+  }
 }
 
 window.contentUpdate = contentUpdate;
@@ -96,7 +152,7 @@ async function setup(parent_selector) {
 
   console.log("setting up for "+parent_selector);
   window.block_count[parent_selector] = 0;
-  window.editors[parent_selector] = {};
+  //window.editors[parent_selector] = {};
 }
 
 window.setup = setup;

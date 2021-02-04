@@ -43,7 +43,7 @@ pub fn testBiscuit(parent_selector: &str) {
         let element = collection.item(i).unwrap();
         let textarea = element.dyn_ref::<HtmlTextAreaElement>().unwrap();
         unsafe {
-            log(&format!("got content: {}", textarea.value()));
+            //log(&format!("got content: {}", textarea.value()));
         }
         block_codes.push(textarea.value());
     }
@@ -63,43 +63,65 @@ pub fn testBiscuit(parent_selector: &str) {
     if !block_codes.is_empty() {
         set_token_content(parent_selector, String::new());
 
-        if let Ok((_, authority_parsed)) = parse_source(&block_codes[0]) {
-            for (_, fact) in authority_parsed.facts.iter() {
-                builder.add_authority_fact(fact.clone()).unwrap();
-            }
+        match parse_source(&block_codes[0]) {
+            Err(e) => {
+                match e {
+                    nom::Err::Error(e) | nom::Err::Failure(e) => {
+                        let selector = format!("{} .block-code-0", parent_selector);
+                        set_parse_error(&selector, &block_codes[0], e);
+                    },
+                    _ => {},
+                }
+            },
+            Ok((_, authority_parsed)) => {
+                for (_, fact) in authority_parsed.facts.iter() {
+                    builder.add_authority_fact(fact.clone()).unwrap();
+                }
 
-            for (_, rule) in authority_parsed.rules.iter() {
-                builder.add_authority_rule(rule.clone()).unwrap();
-            }
+                for (_, rule) in authority_parsed.rules.iter() {
+                    builder.add_authority_rule(rule.clone()).unwrap();
+                }
 
-            for (i, check) in authority_parsed.checks.iter() {
-                builder.add_authority_check(check.clone()).unwrap();
-                let position = get_position(&block_codes[0], i);
-                authority.checks.push((position, true));
+                for (i, check) in authority_parsed.checks.iter() {
+                    builder.add_authority_check(check.clone()).unwrap();
+                    let position = get_position(&block_codes[0], i);
+                    authority.checks.push((position, true));
+                }
             }
         }
 
         let mut token = builder.build_with_rng(&mut rng).unwrap();
 
-        for code in (&block_codes[1..]).iter() {
+        for (i, code) in (&block_codes[1..]).iter().enumerate() {
             let mut block = Block::default();
 
             let temp_keypair = KeyPair::new_with_rng(&mut rng);
             let mut builder = token.create_block();
 
-            if let Ok((_, block_parsed)) = parse_source(&code) {
-                for (_, fact) in block_parsed.facts.iter() {
-                    builder.add_fact(fact.clone()).unwrap();
-                }
+            match parse_source(&code) {
+                Err(e) => {
+                    match e {
+                        nom::Err::Error(e) | nom::Err::Failure(e) => {
+                            let selector = format!("{} .block-code-{}", parent_selector, i+1);
+                            set_parse_error(&selector, &code, e);
+                        },
+                        _ => {},
+                    }
+                },
+                Ok((_, block_parsed)) => {
+                    for (_, fact) in block_parsed.facts.iter() {
+                        builder.add_fact(fact.clone()).unwrap();
+                    }
 
-                for (_, rule) in block_parsed.rules.iter() {
-                    builder.add_rule(rule.clone()).unwrap();
-                }
+                    for (_, rule) in block_parsed.rules.iter() {
+                        builder.add_rule(rule.clone()).unwrap();
+                    }
 
-                for (i, check) in block_parsed.checks.iter() {
-                    builder.add_check(check.clone()).unwrap();
-                    let position = get_position(&code, i);
-                    block.checks.push((position, true));
+                    for (i, check) in block_parsed.checks.iter() {
+                        builder.add_check(check.clone()).unwrap();
+                        let position = get_position(&code, i);
+                        block.checks.push((position, true));
+                    }
                 }
             }
 
@@ -121,7 +143,7 @@ pub fn testBiscuit(parent_selector: &str) {
     if let Some(verifier_element) = document.query_selector(&format!("{} .verifier-code", parent_selector)).unwrap() {
         let textarea = verifier_element.dyn_ref::<HtmlTextAreaElement>().unwrap();
         unsafe {
-            log(&format!("got content: {}", textarea.value()));
+            //log(&format!("got content: {}", textarea.value()));
         }
 
         let verifier_code = textarea.value();
@@ -133,7 +155,7 @@ pub fn testBiscuit(parent_selector: &str) {
             None => Verifier::new().unwrap(),
         };
 
-        info!("verifier source:\n{}", &verifier_code);
+        //info!("verifier source:\n{}", &verifier_code);
 
         let verifier_result;
         let output;
@@ -142,6 +164,12 @@ pub fn testBiscuit(parent_selector: &str) {
         if let Err(e) = res {
             verifier_result = Err(error::Token::ParseError);
             output = e.to_string();
+            match e {
+                nom::Err::Error(e) | nom::Err::Failure(e) => {
+                    set_parse_error(&format!("{} .verifier-code", parent_selector), &verifier_code, e);
+                },
+                _ => {},
+            }
         } else {
             let mut verifier_checks = Vec::new();
             let mut verifier_policies = Vec::new();
@@ -471,6 +499,15 @@ fn newspaper_scenario() -> Self {
     token
 }*/
 
+fn set_parse_error(selector: &str, input: &str, e: nom::error::Error<&str>) {
+    let position = get_position(input, e.input);
+
+    register_parse_error(selector, format!("error: {:?}", e.code),
+      position.line_start, position.column_start,
+      position.line_end, position.column_end);
+//fn get_position(input: &str, span: &str) -> SourcePosition {
+}
+
 #[wasm_bindgen(inline_js = "export function clear_marks() {
     for(var i=0; i < window.marks.length; i=i+1) {
         console.log(\"clearing mark \"+i);
@@ -531,3 +568,26 @@ extern "C" {
 extern "C" {
     fn set_query_result(parent: &str, result: String);
 }
+
+#[wasm_bindgen(
+    inline_js = "export function register_parse_error(selector, message, line_start, column_start, line_end, column_end) {
+    console.log(\"adding parse error to \"+selector);
+    window.editor_lints[selector] = [];
+    window.editor_lints[selector].push({
+        message: message,
+        severity: \"error\",
+        from: CodeMirror.Pos(line_start, column_start),
+        to: CodeMirror.Pos(line_end, column_end),
+    });
+
+}")]
+extern "C" {
+    fn register_parse_error(
+        selector: &str,
+        message: String,
+        line_start: usize,
+        column_start: usize,
+        line_end: usize,
+        column_end: usize);
+}
+
