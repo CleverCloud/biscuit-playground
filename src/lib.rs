@@ -367,7 +367,7 @@ fn get_position(input: &str, span: &str) -> SourcePosition {
     let line_start = prefix.iter().filter(|&&b| b == b'\n').count();
 
     // Find the line that includes the subslice:
-    // ind the *last* newline before the substring starts
+    // find the *last* newline before the substring starts
     let line_begin = prefix
         .iter()
         .rev()
@@ -389,10 +389,10 @@ fn get_position(input: &str, span: &str) -> SourcePosition {
     let prefix = &input.as_bytes()[..offset];
 
     // Count the number of newlines in the first `offset` bytes of input
-    let line_end = prefix.iter().filter(|&&b| b == b'\n').count() + 1;
+    let line_end = prefix.iter().filter(|&&b| b == b'\n').count();
 
     // Find the line that includes the subslice:
-    // ind the *last* newline before the substring starts
+    // find the *last* newline before the substring starts
     let line_begin = prefix
         .iter()
         .rev()
@@ -499,10 +499,13 @@ fn newspaper_scenario() -> Self {
     token
 }*/
 
-fn set_parse_error(selector: &str, input: &str, e: nom::error::Error<&str>) {
+fn set_parse_error(selector: &str, input: &str, e: biscuit_auth::parser::Error) {
     let position = get_position(input, e.input);
+    let message = e.message.as_ref().cloned().unwrap_or_else(|| format!("error: {:?}", e.code));
 
-    register_parse_error(selector, format!("error: {:?}", e.code),
+    error!("position for error({:?}) \"{}\": {:?}", e.code, message, position);
+
+    register_parse_error(selector, message,
       position.line_start, position.column_start,
       position.line_end, position.column_end);
 //fn get_position(input: &str, span: &str) -> SourcePosition {
