@@ -133,14 +133,14 @@
 `// this is a fact, the basic data used in Datalog
 // you can see it as one line in the "right" table
 // facts with #authority can only be in the first block
-right(#authority, "/folder1/file1", #read)
-right(#authority, "/folder1/file1", #write)
-right(#authority, "/folder2/file1", #read)
+right(#authority, "/folder1/file1", $read);
+right(#authority, "/folder1/file1", #write);
+right(#authority, "/folder2/file1", #read);
 
 // rules generate more facts from existing ones. You can
 // read it as "generate can_read with the content $file
 // if there exists a 'right' fact that matches"
-can_read($file) <- right(#authority, $file, #read)
+can_read($file) <- right(#authority, $file, #read);
 
 // this is a check. It will succeed if it finds matching
 // facts. Otherwise, the token validation will fail
@@ -161,14 +161,14 @@ check if
 
               verifier.value =
 `// here we got a read request on /folder1/file1
-resource(#ambient, "/folder1/file1")
-operation(#ambient, #read)
+resource(#ambient, "/folder1/file1");
+operation(#ambient, #read);
 
 // if this matches, the verification will succeed
 allow if
   resource(#ambient, $file),
   operation(#ambient, $op),
-  right(#authority, $file, $op)
+  right(#authority, $file, $op);
 
 // this catch-all policy will refuse the request
 deny if true
@@ -182,31 +182,31 @@ user(#authority, #user_123)
 `);
               verifier.value =
 `// here we got a read request on /projects/1
-resource(#ambient, "PROJECT1")
-operation(#ambient, #read)
+resource(#ambient, "PROJECT1");
+operation(#ambient, #read);
 
-role(#authority, #user_123, "team1_member")
-role(#authority, #user_123, "team2_member")
-role(#authority, #user_456, "team1_manager")
-role(#authority, #user_456, "team2_member")
-role(#authority, #user_789, "admin")
+role(#authority, #user_123, "team1_member");
+role(#authority, #user_123, "team2_member");
+role(#authority, #user_456, "team1_manager");
+role(#authority, #user_456, "team2_member");
+role(#authority, #user_789, "admin");
 
 // a manager automatically gets the right of a member
 role(#authority, $user_id, "team1_member") <-
-    role(#authority, $user_id, "team1_manager")
+    role(#authority, $user_id, "team1_manager");
 
 // an admin automatically gets manager roles
 role(#authority, $user_id, "team1_manager") <-
-    role(#authority, $user_id, "admin")
+    role(#authority, $user_id, "admin");
 
 role(#authority, $user_id, "team2_manager") <-
-    role(#authority, $user_id, "admin")
+    role(#authority, $user_id, "admin");
 
-role_rights(#authority, "team1_member", "PROJECT1", [#read])
-role_rights(#authority, "team1_manager", "PROJECT1", [#read, #write, #delete])
+role_rights(#authority, "team1_member", "PROJECT1", [#read]);
+role_rights(#authority, "team1_manager", "PROJECT1", [#read, #write, #delete]);
 
-role_rights(#authority, "team2_member", "PROJECT2", [#read])
-role_rights(#authority, "team2_manager", "PROJECT2", [#read, #write, #delete])
+role_rights(#authority, "team2_member", "PROJECT2", [#read]);
+role_rights(#authority, "team2_manager", "PROJECT2", [#read, #write, #delete]);
 
 allow if
   resource(#ambient, $project),
@@ -214,7 +214,7 @@ allow if
   user(#authority, $user_id),
   role(#authority, $user_id, $role),
   role_rights(#authority, $role, $project, $rights),
-  $rights.contains($op)
+  $rights.contains($op);
 
 // this catch-all policy will refuse the request
 deny if true

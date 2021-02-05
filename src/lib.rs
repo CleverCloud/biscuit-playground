@@ -65,13 +65,9 @@ pub fn testBiscuit(parent_selector: &str) {
 
         match parse_source(&block_codes[0]) {
             Err(e) => {
-                match e {
-                    nom::Err::Error(e) | nom::Err::Failure(e) => {
-                        let selector = format!("{} .block-code-0", parent_selector);
-                        set_parse_error(&selector, &block_codes[0], e);
-                    },
-                    _ => {},
-                }
+                error!("error: {:?}", e);
+                let selector = format!("{} .block-code-0", parent_selector);
+                set_parse_errors(&selector, &block_codes[0], e);
             },
             Ok((_, authority_parsed)) => {
                 for (_, fact) in authority_parsed.facts.iter() {
@@ -100,13 +96,9 @@ pub fn testBiscuit(parent_selector: &str) {
 
             match parse_source(&code) {
                 Err(e) => {
-                    match e {
-                        nom::Err::Error(e) | nom::Err::Failure(e) => {
-                            let selector = format!("{} .block-code-{}", parent_selector, i+1);
-                            set_parse_error(&selector, &code, e);
-                        },
-                        _ => {},
-                    }
+                    error!("error: {:?}", e);
+                    let selector = format!("{} .block-code-{}", parent_selector, i+1);
+                    set_parse_errors(&selector, &code, e);
                 },
                 Ok((_, block_parsed)) => {
                     for (_, fact) in block_parsed.facts.iter() {
@@ -163,13 +155,9 @@ pub fn testBiscuit(parent_selector: &str) {
         let res = parse_source(&verifier_code);
         if let Err(e) = res {
             verifier_result = Err(error::Token::ParseError);
-            output = e.to_string();
-            match e {
-                nom::Err::Error(e) | nom::Err::Failure(e) => {
-                    set_parse_error(&format!("{} .verifier-code", parent_selector), &verifier_code, e);
-                },
-                _ => {},
-            }
+            output = format!("errors: {:?}", e);
+            error!("error: {:?}", e);
+            set_parse_errors(&format!("{} .verifier-code", parent_selector), &verifier_code, e);
         } else {
             let mut verifier_checks = Vec::new();
             let mut verifier_policies = Vec::new();
@@ -499,16 +487,19 @@ fn newspaper_scenario() -> Self {
     token
 }*/
 
-fn set_parse_error(selector: &str, input: &str, e: biscuit_auth::parser::Error) {
-    let position = get_position(input, e.input);
-    let message = e.message.as_ref().cloned().unwrap_or_else(|| format!("error: {:?}", e.code));
+fn set_parse_errors(selector: &str, input: &str, errors: Vec<biscuit_auth::parser::Error>) {
+    clear_parse_errors(selector);
+    error!("got errors: {:?}", errors);
+    for e in errors.iter() {
+        let position = get_position(input, e.input);
+        let message = e.message.as_ref().cloned().unwrap_or_else(|| format!("error: {:?}", e.code));
 
-    error!("position for error({:?}) \"{}\": {:?}", e.code, message, position);
+        error!("position for error({:?}) \"{}\": {:?}", e.code, message, position);
 
-    register_parse_error(selector, message,
-      position.line_start, position.column_start,
-      position.line_end, position.column_end);
-//fn get_position(input: &str, span: &str) -> SourcePosition {
+        register_parse_error(selector, message,
+                             position.line_start, position.column_start,
+                             position.line_end, position.column_end);
+    }
 }
 
 #[wasm_bindgen(inline_js = "export function clear_marks() {
@@ -574,8 +565,6 @@ extern "C" {
 
 #[wasm_bindgen(
     inline_js = "export function register_parse_error(selector, message, line_start, column_start, line_end, column_end) {
-    console.log(\"adding parse error to \"+selector);
-    window.editor_lints[selector] = [];
     window.editor_lints[selector].push({
         message: message,
         severity: \"error\",
@@ -592,5 +581,13 @@ extern "C" {
         column_start: usize,
         line_end: usize,
         column_end: usize);
+}
+
+#[wasm_bindgen(
+    inline_js = "export function clear_parse_errors(selector) {
+    window.editor_lints[selector] = [];
+}")]
+extern "C" {
+    fn clear_parse_errors(selector: &str);
 }
 
