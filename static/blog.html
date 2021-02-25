@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <link rel="stylesheet" type="text/css" href="style.css" />
+        <link rel="stylesheet" href="/codemirror/lib/codemirror.css">
+        <link rel="stylesheet" href="/codemirror/addon/lint/lint.css">
+        <script type="text/javascript" src="/codemirror/lib/codemirror.js"></script>
+        <script type="text/javascript" src="/codemirror/addon/mode/simple.js"></script>
+        <script type="text/javascript" src="/codemirror/addon/lint/lint.js"></script>
+        <script type="text/javascript" src="/editor.js"></script>
+        <meta charset="utf-8">
+        <title>Biscuit tokens playground by Clever Cloud</title>
+      <script type="module" src="/demo.js"></script>
+    </head>
+    <body>
+      <div>
+        <div id="header">
+            <a href="https://www.clever-cloud.com/"><img src="/logo.svg" /></a>
+            <h2>Biscuit Token playground</h2>
+        </div>
+        <div id="biscuit-wrapper">
+            <div id="explain">
+                <p>This is a live demo of the <a href="https://github.com/CleverCloud/biscuit">Biscuit authentication and authorization tokens</a>,
+                  where you can test different authorization policies. Each token
+                  is made of blocks, each block represents one attenuation level:
+                  you can restrict the rights of a token by adding a new block.
+                  Authorization policies are written in Datalog, where facts represent
+                  data, rules generate more facts from existing facts, checks
+                  validate the presence of some facts. To pass the verification
+                  phase, all of the checks must succeed.
+                </p>
+                <p>On the verifier's side, you can define a list of "allow" or "deny"
+                policies, that will be tried one by one until one of them matches.</p>
+                <p>Test the behaviour of the example token by activating or
+                  deactivating blocks or their data, changing conditions (like
+                  <em>#read</em> operation to <em>#write</em> and see how the verifier will react).</p>
+
+                <p id="example_text"></p>
+
+                <p>Choose an example:
+                <select name="example" onchange="select_example(this)">
+                  <option value="personal_blog">Personal blog</option>
+                  <option value="multi_blog">Multiple blog platform</option>
+                  <option value="published_articles">"Published" status for articles</option>
+                  <option value="reviewers">Reviewers</option>
+                  <option value="premium">Premium accounts</option>
+                  <option value="teams">Teams and roles</option>
+                </select>
+                </p>
+            </div>
+
+            <div id="token" class="container">
+                <h3>Token</h3>
+                <ul class="block-list">
+                    <li><button onclick="add_block('#biscuit-wrapper', '')">Add Block</button></li>
+                </ul>
+                <div class="sub-container">
+                    <em>Token content</em>
+                    <p>This is the data that will be serialized in a Biscuit
+                    token:</p>
+                    <!--<input
+                        type="text"
+                        size="45"
+                        value ="self.token.serialized.as_deref().unwrap_or"
+                        />-->
+                    <pre class="token-content">
+                    </pre>
+                </div>
+            </div>
+            <div id="verifier" class="container">
+              <h3>Verifier</h3>
+
+              <div class="sub-container">
+                  <textarea
+                      class="code verifier-code"
+                      oninput="contentUpdate('#biscuit-wrapper')"
+                  ></textarea>
+              </div>
+
+              <div class="sub-container">
+                  <h4>Verifier result</h4>
+                  <p class="verifier-result">
+                  </p>
+              </div>
+
+              <div class="sub-container">
+                  <h4>Query</h4>
+                  <p>Here you can write a query (in rule format) to extract data from the verifier</p>
+                  <input type="text" class="query" size="50"
+                      oninput="contentUpdate('#biscuit-wrapper')"
+                      value="right($path, $kind) <- right(#authority, $path, $kind)"
+                  ></input>
+                  <pre class="query-result"></pre>
+              </div>
+
+              <div class="sub-container">
+                  <h4>Verifier content</h4>
+                  <p>This is the data that the verifier works with, after having applied all
+                  the rules:</p>
+                  <pre class="verifier-world"></pre>
+              </div>
+
+          </div>
+        </div>
+      </div>
+    <script type="module">
+        import { setup } from "./demo.js"
+
+        async function load() {
+          await setup("#biscuit-wrapper");
+          load_example()
+        }
+
+        async function load_example(value) {
+          var parent_selector = "#biscuit-wrapper";
+
+          if(value == undefined) {
+            value = "personal_blog";
+          }
+
+          while(window.block_count[parent_selector] > 0) {
+              delete_block(parent_selector, window.block_count[parent_selector] - 1);
+          }
+
+          var verifier = document.querySelector(parent_selector + " .verifier-code");
+          var cm = window.editors[parent_selector + " .verifier-code"];
+          if(cm !== undefined) {
+              var wrapper = cm.getWrapperElement();
+              wrapper.parentNode.removeChild(wrapper);
+              delete window.editors[parent_selector + " .verifier-code"];
+          }
+
+/*
+                  <option value="personal_blog">Personal blog</option>
+                  <option value="multi_blog">Multiple blog platform</option>
+                  <option value="published_articles">"Published" status for articles</option>
+                  <option value="reviewers">Reviewers</option>
+                  <option value="premium">Premium accounts</option>
+                  <option value="teams">Teams and roles</option>
+                  */
+
+          if(value == "personal_blog") {
+              document.getElementById("example_text").innerText = `Here, "user_1234" is our user id, and "#authority" is a special symbol that can only be added to facts in the first block of a token (or added by the verifier). A block contains facts (data), rules (to generate facts) and checks
+(queries used to validate the facts). Attenuation is done by adding more blocks. So "#authority" facts denote the basic rights of the token, and we cannot add more of them by attenuating the token. Symbols, as indicated by the "#"" prefix, are special strings that are internally
+replaced with integers, to compress tokens and accelerate evaluation.`;
+
+              add_block(parent_selector,
+`// this is a fact, the basic data used in Datalog
+// you can see it as one row in the "user" table
+// facts with #authority can only be in the first block
+user(#authority, "user_1234")
+`);
+
+              verifier.value =
+`// if this matches, the verification will succeed
+allow if user(#authority, "user_1234");
+`;
+
+              setup_editor(parent_selector + " .verifier-code");
+        } else if(value == "multi_blog") {
+          document.getElementById("example_text").innerText = "After a few friends have seen your marvelous website, they ask if you could host their blogs on the same platform. So now you need more flexible authorization rules. We could keep the small tokens with the user id, but add more intelligence on the server's side.";
+ 
+          add_block(parent_selector,
+`// we define a token that will only contain a user id
+user(#authority, "user_1234")
+`);
+              verifier.value =
+`// here we got a POST on /blog1/article1
+blog(#ambient, "blog1");
+article(#ambient, "blog1", "article1");
+operation(#ambient, #update);
+
+owner(#authority, "user_1234", "blog1");
+owner(#authority, "user_5678", "blog2");
+owner(#authority, "user_1234", "blog3");
+
+right(#authority, $blog_id, $article_id, $operation) <-
+    article(#ambient, $blog_id, $article_id),
+    operation(#ambient, $operation),
+    user(#authority, $user_id),
+    owner(#authority, $user_id, $blog_id);
+
+allow if
+  blog(#ambient, $blog_id),
+  article(#ambient, $blog_id, $article_id),
+  operation(#ambient, $operation),
+  right(#authority, $blog_id, $article_id, $operation);
+
+// unauthenticated users have read access
+allow if
+  operation(#ambient, #read);
+
+// catch all rule in case the allow did not match
+deny if true;
+`;
+
+              setup_editor(parent_selector + " .verifier-code");
+    
+        } else if(value == "published_articles") {
+            document.getElementById("example_text").innerText = "We want to mark an article as publicly readable by creating the fact `readable(#authority, $blog_id, $article_id)`.";
+            add_block(parent_selector,
+`// we should access readable articles even if we are not an authenticated user
+// user(#authority, "user_1234")
+`);
+            verifier.value =
+`
+blog(#ambient, "blog1");
+article(#ambient, "blog1", "article1");
+operation(#ambient, #read);
+
+owner(#authority, "user_1234", "blog1");
+owner(#authority, "user_5678", "blog2");
+owner(#authority, "user_1234", "blog3");
+
+readable(#authority, "blog1", "article1");
+
+right(#authority, $blog_id, $article_id, $operation) <-
+    article(#ambient, $blog_id, $article_id),
+    operation(#ambient, $operation),
+    user(#authority, $user_id),
+    owner(#authority, $user_id, $blog_id);
+
+allow if
+  blog(#ambient, $blog_id),
+  article(#ambient, $blog_id, $article_id),
+  operation(#ambient, $operation),
+  right(#authority, $blog_id, $article_id, $operation);
+
+// unauthenticated users have read access
+allow if
+  operation(#ambient, #read),
+  article(#ambient, $blog_id, $article_id),
+  readable(#authority, $blog_id, $article_id);
+
+// catch all rule in case the allow did not match
+deny if true;
+`;
+            setup_editor(parent_selector + " .verifier-code");
+        } else if(value == "reviewers") {
+            document.getElementById("example_text").innerText = "Often, we'd like to ask friends and colleagues to review articles before they are published";
+            add_block(parent_selector,
+`// we reuse the owner token
+user(#authority, "user_1234")
+`);
+            add_block(parent_selector,
+`// but we add a check restricting access to one article
+check if article(#ambient, "blog1", "article1"), operation(#ambient, #read);
+`);
+            verifier.value =
+`blog(#ambient, "blog1");
+article(#ambient, "blog1", "article1");
+operation(#ambient, #read);
+
+owner(#authority, "user_1234", "blog1");
+owner(#authority, "user_5678", "blog2");
+owner(#authority, "user_1234", "blog3");
+
+// not published
+//readable(#authority, "blog1", "article1");
+
+right(#authority, $blog_id, $article_id, $operation) <-
+    article(#ambient, $blog_id, $article_id),
+    operation(#ambient, $operation),
+    user(#authority, $user_id),
+    owner(#authority, $user_id, $blog_id);
+
+allow if
+  blog(#ambient, $blog_id),
+  article(#ambient, $blog_id, $article_id),
+  operation(#ambient, $operation),
+  right(#authority, $blog_id, $article_id, $operation);
+
+// unauthenticated users have read access
+allow if
+  operation(#ambient, #read),
+  article(#ambient, $blog_id, $article_id),
+  readable(#authority, $blog_id, $article_id);
+
+// catch all rule in case the allow did not match
+deny if true;
+`;
+            setup_editor(parent_selector + " .verifier-code");
+        } else if(value == "premium") {
+            document.getElementById("example_text").innerText = "Now some of the blog authors want to make living out of it and mark some articles as \"premium\", so that only some users can access them.";
+            add_block(parent_selector,
+`user(#authority, "reader_1234");
+premium_user(#authority, "reader_1234", "blog1");
+`);
+            verifier.value =
+`blog(#ambient, "blog1");
+article(#ambient, "blog1", "article1");
+operation(#ambient, #read);
+
+owner(#authority, "user_1234", "blog1");
+owner(#authority, "user_5678", "blog2");
+owner(#authority, "user_1234", "blog3");
+
+// published only for premium readers
+premium_readable(#authority, "blog1", "article1");
+
+// owner rights
+right(#authority, $blog_id, $article_id, $operation) <-
+    article(#ambient, $blog_id, $article_id),
+    operation(#ambient, $operation),
+    user(#authority, $user_id),
+    owner(#authority, $user_id, $blog_id);
+
+// premium user rights
+right(#authority, $blog_id, $article_id, #read) <-
+  article(#ambient, $blog_id, $article_id),
+  premium_readable(#authority, $blog_id, $article_id),
+  user(#authority, $user_id),
+  premium_user(#authority, $user_id, $blog_id);
+
+allow if
+  blog(#ambient, $blog_id),
+  article(#ambient, $blog_id, $article_id),
+  operation(#ambient, $operation),
+  right(#authority, $blog_id, $article_id, $operation);
+
+// unauthenticated users have read access
+allow if
+  operation(#ambient, #read),
+  article(#ambient, $blog_id, $article_id),
+  readable(#authority, $blog_id, $article_id);
+
+
+// catch all rule in case the allow did not match
+deny if true;
+`;
+            setup_editor(parent_selector + " .verifier-code");
+        } else if(value == "teams") {
+            document.getElementById("example_text").innerText = "We want to mark an article as publicly readable by creating the fact `readable(#authority, $blog_id, $article_id)`.";
+            add_block(parent_selector,
+`user(#authority, "employee_ABCD");
+`);
+            verifier.value =
+`blog(#ambient, "blog1");
+article(#ambient, "blog1", "article1");
+operation(#ambient, #read);
+
+member(#authority, "employee_ABCD", "editors");
+team_role(#authority, "editors", "blog1", #contributor);
+
+
+// owner rights
+right(#authority, $blog_id, $article_id, $operation) <-
+    article(#ambient, $blog_id, $article_id),
+    operation(#ambient, $operation),
+    user(#authority, $user_id),
+    owner(#authority, $user_id, $blog_id);
+
+// premium user rights
+right(#authority, $blog_id, $article_id, #read) <-
+  article(#ambient, $blog_id, $article_id),
+  premium_readable(#authority, $blog_id, $article_id),
+  user(#authority, $user_id),
+  premium_user(#authority, $user_id, $blog_id);
+
+// teams
+right(#authority, $blog_id, $article_id, $operation) <-
+  article(#ambient, $blog_id, $article_id),
+  operation(#ambient, $operation),
+  user(#authority, $user_id),
+  member(#authority, $user_id, $team_id),
+  team_role(#authority, $team_id, $blog_id, #contributor),
+  [#read, #write].contains($operation);
+
+allow if
+  blog(#ambient, $blog_id),
+  article(#ambient, $blog_id, $article_id),
+  operation(#ambient, $operation),
+  right(#authority, $blog_id, $article_id, $operation);
+
+// unauthenticated users have read access
+allow if
+  operation(#ambient, #read),
+  article(#ambient, $blog_id, $article_id),
+  readable(#authority, $blog_id, $article_id);
+
+
+// catch all rule in case the allow did not match
+deny if true;
+`;
+            setup_editor(parent_selector + " .verifier-code");
+        }
+  contentUpdate("#biscuit-wrapper");
+}
+
+    function select_example(element) {
+      load_example(element.value);
+    }
+    window.select_example = select_example;
+    load();
+
+    //load_example();
+    </script>
+
+    </body>
+</html>
