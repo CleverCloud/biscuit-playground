@@ -192,7 +192,8 @@ pub fn testBiscuit(parent_selector: &str) {
             limits.max_time = std::time::Duration::from_secs(2);
             verifier_result = verifier.verify_with_limits(limits);
 
-            output = print_facts(&verifier);
+            let (facts, _, _) = verifier.dump();
+            output = print_facts(facts);
 
             match &verifier_result {
                 Err(error::Token::FailedLogic(error::Logic::FailedChecks(v))) => {
@@ -313,8 +314,7 @@ pub fn testBiscuit(parent_selector: &str) {
                     match query_result {
                         Err(e) => set_query_result(parent_selector, format!("Error: {:?}", e)),
                         Ok(facts) => {
-                            let facts: Vec<String> = facts.iter().map(|f| f.to_string()).collect();
-                            let result = facts.join(",\n");
+                            let result = print_facts(facts);
                             set_query_result(parent_selector, result);
                         }
                     }
@@ -349,9 +349,7 @@ struct SourcePosition {
     column_end: usize,
 }
 
-fn print_facts(verifier: &Verifier) -> String {
-  let (mut facts, _, _) = verifier.dump();
-
+fn print_facts(mut facts: Vec<builder::Fact>) -> String {
   let mut tables: HashMap<String, Vec<Vec<builder::Term>>> = HashMap::new();
 
   for fact in facts.drain(..) {
@@ -525,7 +523,7 @@ extern "C" {
 
 #[wasm_bindgen(inline_js = "export function set_query_result(parent, result) {
     var element = document.querySelector(parent + \" .query-result\");
-    element.innerText = result;
+    element.innerHTML = result;
 }")]
 extern "C" {
     fn set_query_result(parent: &str, result: String);
