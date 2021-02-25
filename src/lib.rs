@@ -8,6 +8,7 @@ use biscuit_auth::{
     error,
     parser::{parse_source, SourceResult},
     token::Biscuit,
+    token::builder,
     token::verifier::{Verifier, VerifierLimits},
 };
 use log::*;
@@ -306,7 +307,8 @@ pub fn testBiscuit(parent_selector: &str) {
                 set_query_result(parent_selector, String::new());
 
                 if !query.is_empty() {
-                    let query_result = verifier.query(query.as_str());
+                    let query_result: Result<Vec<builder::Fact>, biscuit_auth::error::Token> =
+                        verifier.query(query.as_str());
                     match query_result {
                         Err(e) => set_query_result(parent_selector, format!("Error: {:?}", e)),
                         Ok(facts) => {
