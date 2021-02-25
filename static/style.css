@@ -178,3 +178,28 @@ pre {
   }
 }
 
+table, td {
+    border: 1px solid #fff;
+    color: #000;
+    margin-bottom: 10px;
+}
+
+thead, tfoot {
+    background-color: #333;
+    color: #fff;
+}
+
+tbody tr:nth-child(odd){
+  background-color: #dfe4ed;
+}
+
+tbody tr:nth-child(even){
+  background-color: #fff;
+}
+
+td, th {
+  padding-left: 10px;
+  padding-right: 10px;
+  padding-top: 5px;
+  padding-bottom: 3px;
+}

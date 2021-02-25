@@ -15,6 +15,7 @@ use log::*;
 use nom::Offset;
 use rand::prelude::*;
 use std::default::Default;
+use std::collections::HashMap;
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
@@ -191,7 +192,7 @@ pub fn testBiscuit(parent_selector: &str) {
             limits.max_time = std::time::Duration::from_secs(2);
             verifier_result = verifier.verify_with_limits(limits);
 
-            output = verifier.print_world();
+            output = print_facts(&verifier);
 
             match &verifier_result {
                 Err(error::Token::FailedLogic(error::Logic::FailedChecks(v))) => {
@@ -348,6 +349,35 @@ struct SourcePosition {
     column_end: usize,
 }
 
+fn print_facts(verifier: &Verifier) -> String {
+  let (mut facts, _, _) = verifier.dump();
+
+  let mut tables: HashMap<String, Vec<Vec<builder::Term>>> = HashMap::new();
+
+  for fact in facts.drain(..) {
+      let v = tables.entry(fact.0.name).or_default();
+      v.push(fact.0.ids);
+  }
+
+  let mut s = String::new();
+
+  for (fact_name, fact_list) in tables.iter() {
+      s += &format!("<table><thead><tr><th>{}</th></tr></thead><tbody>", fact_name);
+
+      for terms_list in fact_list {
+          s += "<tr>";
+            for term in terms_list {
+                s += &format!("<td>{}</td>", term);
+            }
+          s += "</tr>";
+      }
+
+      s += "</tbody></table>";
+  }
+
+  s
+}
+
 // based on nom's convert_error
 fn get_position(input: &str, span: &str) -> SourcePosition {
     let offset = input.offset(span);
@@ -479,7 +509,7 @@ extern "C" {
     var element = document.querySelector(parent + \" .verifier-result\");
     element.innerText = error;
     var element = document.querySelector(parent + \" .verifier-world\");
-    element.innerText = world;
+    element.innerHTML = world;
 }")]
 extern "C" {
     fn set_verifier_result(parent: &str, error: String, world: String);
